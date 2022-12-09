@@ -1,4 +1,4 @@
-# Penta Security Server [![pipeline status](https://git3.fsoft.com.vn/GROUP/gmose_mobilitysecurity/gmose-backend/badges/develop/pipeline.svg)](https://git3.fsoft.com.vn/GROUP/gmose_mobilitysecurity/gmose-backend/-/commits/develop) [![coverage report](https://git3.fsoft.com.vn/GROUP/gmose_mobilitysecurity/gmose-backend/badges/develop/coverage.svg)](https://git3.fsoft.com.vn/GROUP/gmose_mobilitysecurity/gmose-backend/-/commits/develop)
+# Penta Security Server 
 
 ## Description
 
@@ -6,22 +6,10 @@
 
 ## Table of Contents
 
-- [Features](#features)
 - [Quick run](#quick-run)
 - [Links](#links)
 - [Database utils](#database-utils)
 - [Generate SSL Cert](#generate-ssl-cert)
-- [Tests](#tests)
-
-## Features
-
-- [x] NodeJS ([16.x.x](https://nodejs.org/download/release/latest-v16.x/))
-- [x] NestJS ([8.x.x](https://docs.nestjs.com/#installation))
-- [x] PostgreSQL ([14.2](https://www.postgresql.org/download/))
-- [x] TypeORM ([0.2.x](https://www.npmjs.com/package/typeorm))
-- [x] Websocket
-- [x] Swagger
-- [x] Unit tests
 
 ## Quick run
 
@@ -35,8 +23,8 @@ $ npm run start:dev
 
 ## Links
 
-- Swagger: http://localhost:3000/api/docs
-- Socket: http://localhost:3000
+- Swagger: http://localhost:3001/api/docs
+- Socket: http://localhost:3001
 
 ## Database utils
 
@@ -72,21 +60,5 @@ npm run seed:run
 
 ## Generate SSL Cert
 ```bash
-
-```
-
-## Tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-
-# test clear cache
-$ npm run test:clearCache
+UPDATE SOON
 ```
