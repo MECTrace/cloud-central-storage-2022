@@ -1,0 +1,53 @@
+stages:
+  - lint
+  - sonar
+
+lint:
+  image: node:16.15-alpine
+  stage: lint
+  only:
+    refs:
+      - merge_requests
+      - develop
+  tags: 
+    - gdp-docker
+  before_script:
+    - npm config set registry https://hn-repo.fsoft.com.vn/repository/npm/
+    - npm config set sass_binary_site=https://hn-repo.fsoft.com.vn/repository/github/sass/node-sass/releases/download/
+    - npm config set phantomjs_cdnurl=https://hn-repo.fsoft.com.vn/repository/github/Medium/phantomjs/releases/download/v2.1.1/
+    - npm config set chromedriver_cdnurl=https://hn-repo.fsoft.com.vn/repository/npm-chromedriver/
+    - npm config set electron_mirror=https://dn-repo.fsoft.com.vn/repository/npm-electron/
+    - npm config set strict-ssl=false
+    - NODEJS_ORG_MIRROR=https://hn-repo.fsoft.com.vn/repository/npm-nodejs/
+  script:
+    - npm install
+    - npm run lint
+    - npm run test:cov
+
+# Sonar scanner, scan and analyse source code using SonarQ
+sonar_analysis:
+  stage: sonar
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "develop"
+      when: manual
+    - when: never
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - apk add --update nodejs npm
+    - npm install -g npm@latest
+    - npm install
+    - npm run test:cov
+    - sonar-scanner -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=./test/coverage/lcov.info -Dsonar.host.url=https://sonar1.fsoft.com.vn -Dsonar.login=$SONAR_TOKEN
+  allow_failure: true # Allow fail only because this is external jobs, should not block build jobs
+  tags:
+    - gdp-docker
