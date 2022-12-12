@@ -43,6 +43,5 @@ lerna-debug.log*
 
 # https key
 cert/*.pem
-cert/*.srl
-cert/ca.*
-cert/server.*
+cert/rootCA.cnf
+cert/cert.cnf

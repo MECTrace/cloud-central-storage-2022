@@ -27,8 +27,9 @@ import { EventGateway } from '../event.gateway';
 import { IEventResult, IGetBySendNodeId, IInsertResult } from '../interfaces';
 import { EventService } from '../service/event.service';
 import { PaginationParams } from '../../../util/paginationParams';
+import { summaryDto } from '../dto/summary.dto';
 
-@ApiTags('event')
+@ApiTags('Upload file API')
 @Controller('event')
 export class EventController {
   constructor(
@@ -37,15 +38,6 @@ export class EventController {
     private nodeService: NodeService,
     private eventGateway: EventGateway,
   ) {}
-
-  @Get('list')
-  @ApiOkResponse({
-    status: 200,
-    description: 'List event monitoring by status',
-  })
-  GetByStatus() {
-    return this.eventService.getByStatus();
-  }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('fileUpload'))
@@ -118,7 +110,6 @@ export class EventController {
       })
       .then(async ({ id, fileId }) => {
         const ds: IEventResult[] = await this.eventService.getByFileId(fileId);
-        //update event first item
         if (ds.length === 1) {
           await this.eventService.update(ds[0].event_id, STATUS.SUCCESS);
           tempId = ds[0].event_id;
@@ -131,7 +122,6 @@ export class EventController {
             });
           }, 2000);
         } else if (ds.length > 1) {
-          //if multi event , only update new event
           const index = ds.length - 1;
           tempId = ds[index].event_id;
           await this.eventService.update(ds[index].event_id, STATUS.FAIL);
@@ -178,9 +168,19 @@ export class EventController {
       });
   }
 
+  @Get('summary')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Summary all of events on server',
+    type: summaryDto,
+  })
+  GetByStatus() {
+    return this.eventService.getByStatus();
+  }
+
   @Get(':sendNodeId')
   @ApiParam({ name: SWAGGER_API.params.sendNodeId, type: String })
-  @ApiQuery({ name: SWAGGER_API.query.page, type: String })
+  @ApiQuery({ name: SWAGGER_API.query.page, required: false })
   @ApiOkResponse({
     status: 200,
     description: 'List Event By Send Node Id',

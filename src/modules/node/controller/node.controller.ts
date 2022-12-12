@@ -8,27 +8,21 @@ import {
 import { ListNodeDto } from '../dto/list-node.dto';
 import { NodeService } from '../service/node.service';
 
-@ApiTags('Node')
-@Controller('Node')
+@ApiTags('Cloud Server API')
+@Controller('node')
 export class NodeController {
   constructor(private nodeService: NodeService) {}
 
   @Get('list')
   @ApiOperation({
-    description: `<b>Get All Nodes</b>`,
+    description: `Get All of Server information, include: Cloud Central &  Edge Node`,
   })
   @ApiOkResponse({
     status: 200,
-    description: 'List Nodes',
+    description: 'Get list succeeded',
     type: ListNodeDto,
   })
   getAllNodes() {
     return this.nodeService.findAll();
-  }
-
-  @Get(':id')
-  @ApiParam({ name: 'id', type: String })
-  get(@Param() params: { id: string }) {
-    return this.nodeService.findOne(params.id);
   }
 }

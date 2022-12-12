@@ -1,0 +1,42 @@
+[ req ]
+default_bits        = 2048
+
+# Default private key file name, example: private-key.pem
+default_keyfile     = 
+
+distinguished_name  = subject
+req_extensions      = req_ext
+string_mask         = utf8only
+prompt              = no
+
+[ subject ]
+# Country Name (2 letter code), example: VN
+countryName         = 
+
+# State or Province Name (full name), example: Binh Dinh
+stateOrProvinceName = 
+
+# Locality Name (eg, city), example: Quy Nhon
+localityName        = 
+
+# Organization Name (eg, company), example: Penta Security
+organizationName    = 
+
+# Common Name (e.g. server FQDN or YOUR name), example: localhost
+commonName          = 
+
+# Email Address
+emailAddress        = 
+
+# Section req_ext is used when generating a certificate signing request.
+[ req_ext ]
+subjectKeyIdentifier = hash
+basicConstraints     = CA:FALSE
+keyUsage             = digitalSignature, keyEncipherment
+subjectAltName       = @alternate_names
+nsComment            = "OpenSSL Generated Certificate"
+extendedKeyUsage     = serverAuth, clientAuth
+
+[ alternate_names ]
+DNS.1 = localhost
+DNS.2 = 127.0.0.1

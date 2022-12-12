@@ -5,7 +5,7 @@ import { EventService } from 'src/modules/event/service/event.service';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { ICertificateRes } from '../interfaces';
 import { CertificateService } from '../service/certificate.service';
-@ApiTags('certificate')
+@ApiTags('Certificate API')
 @Controller('certificate')
 export class CertificateController {
   constructor(
@@ -13,23 +13,6 @@ export class CertificateController {
     private eventService: EventService,
     private nodeServices: NodeService,
   ) {}
-
-  @Get('generateCertificateData')
-  @ApiOkResponse({
-    status: 200,
-    description: 'Generate Certificate Data for Node',
-  })
-  async generateCertificateData() {
-    try {
-      const listNode = await this.nodeServices.getNode();
-      await this.certificateService.generateCertificateData(listNode);
-
-      return { status: 'succeeded' };
-    } catch (err) {
-      console.log(err);
-      return { status: 'failed' };
-    }
-  }
 
   @Get('list')
   @ApiOkResponse({
@@ -50,6 +33,23 @@ export class CertificateController {
       serverStatus,
       certificates,
     };
+  }
+
+  @Get('generateCertificateData')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Generate Certificate Data for Node',
+  })
+  async generateCertificateData() {
+    try {
+      const listNode = await this.nodeServices.getNode();
+      await this.certificateService.generateCertificateData(listNode);
+
+      return { status: 'succeeded' };
+    } catch (err) {
+      console.log(err);
+      return { status: 'failed' };
+    }
   }
 
   @Get('forceUploadCertificate')

@@ -28,9 +28,9 @@ export class NodeService {
       .execute() as Promise<Node[]>;
   }
 
-  async findOne(id: string): Promise<Node> {
+  async findOne(name: string): Promise<Node> {
     return this.nodeRepository.findOne({
-      name: id,
+      name,
     });
   }
 
