@@ -1,5 +1,5 @@
 const splitNumberFromName = (name: string) => {
-  const number = name.replace('EDGE ', '');
+  const number = name.replace('Edge', '').trim();
   return 'ptanode' + parseInt(number).toString();
 };
 
