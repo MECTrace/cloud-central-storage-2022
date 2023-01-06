@@ -14,7 +14,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
       username: this.configService.get('DATABASE_USERNAME'),
       password: this.configService.get('DATABASE_PASSWORD'),
       database: this.configService.get('DATABASE_NAME'),
-      ssl: process.env.NODE_ENV !== 'DEV',
+      ssl: true,
       synchronize: false,
       dropSchema: false,
       keepConnectionAlive: true,

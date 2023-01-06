@@ -1,10 +1,5 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import {
-  ApiOkResponse,
-  ApiOperation,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Controller, Get } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ListNodeDto } from '../dto/list-node.dto';
 import { NodeService } from '../service/node.service';
 

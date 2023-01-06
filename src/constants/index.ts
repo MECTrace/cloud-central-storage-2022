@@ -18,7 +18,7 @@ export const SocketStatus = {
   PENDING: 0,
 };
 
-export const CORS_ORIGIN = [process.env.FE_URL, process.env.NODE_URL_01];
+export const CORS_ORIGIN = [process.env.FE_URL];
 
 export const WEB_SOCKET_GATEWAY = {
   origin: CORS_ORIGIN,
@@ -33,3 +33,9 @@ export const SWAGGER_API = {
     sendNodeId: 'sendNodeId',
   },
 };
+
+const CERTIFICATE_FOLDER = 'cert/';
+export const ROOT_CA = CERTIFICATE_FOLDER + process.env.CA_CERT;
+export const CLOUD_KEY = CERTIFICATE_FOLDER + process.env.CLOUD_KEY;
+export const CLOUD_CERT = CERTIFICATE_FOLDER + process.env.CLOUD_CERT;
+export const CERTIFICATE_API = '/api/certificate';

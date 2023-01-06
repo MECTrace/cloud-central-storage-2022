@@ -40,4 +40,14 @@ export class NodeService {
       .select(['id', 'name'])
       .execute() as Promise<{ id: string; name: string }[]>;
   }
+
+  async getNodeById(nodeId: string): Promise<{ name: string }[]> {
+    return this.nodeRepository
+      .createQueryBuilder()
+      .select(['name'])
+      .where({
+        id: nodeId,
+      })
+      .execute() as Promise<{ name: string }[]>;
+  }
 }

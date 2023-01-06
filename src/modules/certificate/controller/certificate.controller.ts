@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Delete, Get, Param } from '@nestjs/common';
+import { ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
 import * as fs from 'fs';
+import { CLOUD_CERT } from 'src/constants';
 import { EventService } from 'src/modules/event/service/event.service';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { ICertificateRes } from '../interfaces';
@@ -60,10 +61,10 @@ export class CertificateController {
   async forceUploadCertificates() {
     try {
       await this.certificateService.insertCertificateData(
-        fs.readFileSync(`cert/${process.env.CLOUD_CERT}`),
+        fs.readFileSync(CLOUD_CERT),
       );
 
-      const cert = fs.readFileSync(`cert/${process.env.CLOUD_CERT}`);
+      const cert = fs.readFileSync(CLOUD_CERT);
 
       await this.eventService.forceUploadCertificates(
         cert,
@@ -75,5 +76,20 @@ export class CertificateController {
       console.log(err);
       return { status: 'failed' };
     }
+  }
+
+  @Delete(':nodeId')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Delete Certificate to Cloud Storage for Monitoring',
+  })
+  @ApiParam({
+    name: 'nodeId',
+    type: String,
+    description: 'e57f734f-a8ef-4c5b-b120-1856bdff6f85',
+  })
+  async deleteCertificate(@Param() params: { nodeId: string }) {
+    await this.certificateService.deleteCertificate(params.nodeId);
+    return { status: params.nodeId };
   }
 }

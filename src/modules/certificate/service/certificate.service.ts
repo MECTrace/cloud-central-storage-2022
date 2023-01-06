@@ -1,17 +1,25 @@
+import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import { X509Certificate } from 'crypto';
+import * as fs from 'fs';
+import * as https from 'https';
+import { firstValueFrom } from 'rxjs';
+import { CERTIFICATE_API, ROOT_CA } from 'src/constants';
+import { NodeService } from 'src/modules/node/service/node.service';
+import { getPrefixDomain } from 'src/util/mappingNode';
 import { Repository } from 'typeorm';
 import { Node } from '../../node/entity/node.entity';
 import { Certificate } from '../entity/certificate.entity';
 import { ICertificateRes } from '../interfaces';
-import * as fs from 'fs';
 
 const NO_CERT = 'No Certificate';
-const EXPIRED_QUERY = '"Certificate"."expiredDay" < Now()';
+const EXPIRED_QUERY = '"Certificate"."expiredDay" <= Now()';
 export class CertificateService {
   constructor(
     @InjectRepository(Certificate)
     private certificateRepository: Repository<Certificate>,
+    private nodeServices: NodeService,
+    private httpService: HttpService,
   ) {}
 
   checkCertificateIssue(certificate: Buffer) {
@@ -88,9 +96,7 @@ export class CertificateService {
       const certificateIssue =
         certExpiredDay < currentDate ? 'Certificate Expired' : 'None';
 
-      const rootCA = new X509Certificate(
-        fs.readFileSync(`cert/${process.env.CA_CERT}`),
-      );
+      const rootCA = new X509Certificate(fs.readFileSync(ROOT_CA));
 
       const isIssued = certificateData.checkIssued(rootCA);
 
@@ -168,24 +174,22 @@ export class CertificateService {
       .setParameter('certStatus', 'None')
       .getRawMany();
 
-    const errorServer = await this.certificateRepository
-      .createQueryBuilder()
+    const notWorkServer = await this.certificateRepository
+      .createQueryBuilder('certificate')
+      .innerJoin(Node, 'node', 'certificate.nodeId = node.id')
       .select()
-      .where(EXPIRED_QUERY)
-      .andWhere('"Certificate"."certificateIssue" != :certStatus')
-      .setParameter('certStatus', NO_CERT)
+      .where('"node"."status" = :nodeStatus')
+      .setParameter('nodeStatus', 'Down')
       .getRawMany();
 
-    const notWorkServer = await this.certificateRepository
+    const total = await this.certificateRepository
       .createQueryBuilder()
       .select()
-      .where(EXPIRED_QUERY)
-      .orWhere('"Certificate"."certificateIssue" = :certStatus')
-      .setParameter('certStatus', NO_CERT)
       .getRawMany();
 
     return {
-      errorServer: errorServer.length || 0,
+      errorServer:
+        total.length - (notWorkServer.length + normalServer.length) || 0,
       notWorkServer: notWorkServer.length || 0,
       normalServer: normalServer.length || 0,
     };
@@ -202,5 +206,27 @@ export class CertificateService {
       issuedCertificate,
       total: issuedCertificate.length || 0,
     };
+  }
+
+  async deleteCertificate(nodeId: string) {
+    const getName = await this.nodeServices.getNodeById(nodeId);
+    if (fs.existsSync(ROOT_CA)) {
+      const prefix = getPrefixDomain(getName[0].name);
+      let url = process.env.NODE_URL + CERTIFICATE_API;
+      if (process.env.NODE_ENV === 'PROD') {
+        url = 'https://' + prefix + process.env.DOMAIN + CERTIFICATE_API;
+      }
+
+      const httpsAgent = new https.Agent({
+        ca: fs.readFileSync(ROOT_CA).toString(),
+      });
+
+      await firstValueFrom(
+        this.httpService.delete(url, {
+          httpsAgent,
+        }),
+      );
+    }
+    return "Don't have Certificate";
   }
 }
