@@ -22,15 +22,6 @@ export class CertificateService {
     private httpService: HttpService,
   ) {}
 
-  checkCertificateIssue(certificate: Buffer) {
-    const certificateData = new X509Certificate(certificate);
-    const expiredDay = certificateData.validTo;
-    const certExpiredDay = new Date(expiredDay);
-    const currentDate = new Date();
-    if (certExpiredDay < currentDate) return 'Certificate Expired';
-    return 'None';
-  }
-
   async getAllCertificates(): Promise<ICertificateRes> {
     return this.certificateRepository
       .createQueryBuilder('certificate')
@@ -94,7 +85,7 @@ export class CertificateService {
       const currentDate = new Date();
 
       const certificateIssue =
-        certExpiredDay < currentDate ? 'Certificate Expired' : 'None';
+        certExpiredDay <= currentDate ? 'Certificate Expired' : 'None';
 
       const rootCA = new X509Certificate(fs.readFileSync(ROOT_CA));
 
@@ -154,7 +145,9 @@ export class CertificateService {
     const expiredCertificate = await this.certificateRepository
       .createQueryBuilder()
       .select()
-      .where('"Certificate"."expiredDay" <= Now()')
+      .where(EXPIRED_QUERY)
+      .andWhere('"Certificate"."certificateIssue" != :noCert')
+      .setParameter('noCert', NO_CERT)
       .getRawMany();
 
     return {
@@ -209,21 +202,16 @@ export class CertificateService {
   async deleteCertificate(nodeId: string) {
     const getName = await this.nodeServices.getNodeById(nodeId);
     if (fs.existsSync(ROOT_CA)) {
-      console.log('getName', getName);
       const prefix = getPrefixDomain(getName[0].name);
-      console.log('prefix', prefix);
 
       let url = process.env.NODE_URL + CERTIFICATE_API;
       if (process.env.NODE_ENV === 'PROD') {
         url = 'https://' + prefix + process.env.DOMAIN + CERTIFICATE_API;
       }
-      console.log('url', url);
 
       const httpsAgent = new https.Agent({
         ca: fs.readFileSync(ROOT_CA).toString(),
       });
-
-      console.log(getName);
 
       await firstValueFrom(
         this.httpService.delete(url, {
