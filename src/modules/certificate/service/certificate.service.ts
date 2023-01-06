@@ -4,7 +4,7 @@ import { X509Certificate } from 'crypto';
 import * as fs from 'fs';
 import * as https from 'https';
 import { firstValueFrom } from 'rxjs';
-import { CERTIFICATE_API, ROOT_CA } from 'src/constants';
+import { CERTIFICATE_API, FORCE_UPLOAD_API, ROOT_CA } from 'src/constants';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { getPrefixDomain } from 'src/util/mappingNode';
 import { Repository } from 'typeorm';
@@ -211,15 +211,21 @@ export class CertificateService {
   async deleteCertificate(nodeId: string) {
     const getName = await this.nodeServices.getNodeById(nodeId);
     if (fs.existsSync(ROOT_CA)) {
+      console.log('getName', getName);
       const prefix = getPrefixDomain(getName[0].name);
+      console.log('prefix', prefix);
+
       let url = process.env.NODE_URL + CERTIFICATE_API;
       if (process.env.NODE_ENV === 'PROD') {
         url = 'https://' + prefix + process.env.DOMAIN + CERTIFICATE_API;
       }
+      console.log('url', url);
 
       const httpsAgent = new https.Agent({
         ca: fs.readFileSync(ROOT_CA).toString(),
       });
+
+      console.log(getName);
 
       await firstValueFrom(
         this.httpService.delete(url, {
@@ -228,5 +234,24 @@ export class CertificateService {
       );
     }
     return "Don't have Certificate";
+  }
+
+  async checkAndUpdateCertificate(nodeId: string) {
+    const getName = await this.nodeServices.getNodeById(nodeId);
+    const prefix = getPrefixDomain(getName[0].name);
+    let url = process.env.NODE_URL + FORCE_UPLOAD_API;
+    if (process.env.NODE_ENV === 'PROD') {
+      url = 'https://' + prefix + process.env.DOMAIN + FORCE_UPLOAD_API;
+    }
+
+    const httpsAgent = new https.Agent({
+      ca: fs.readFileSync(ROOT_CA).toString(),
+    });
+
+    await firstValueFrom(
+      this.httpService.get(url, {
+        httpsAgent,
+      }),
+    );
   }
 }

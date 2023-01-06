@@ -39,3 +39,4 @@ export const ROOT_CA = CERTIFICATE_FOLDER + process.env.CA_CERT;
 export const CLOUD_KEY = CERTIFICATE_FOLDER + process.env.CLOUD_KEY;
 export const CLOUD_CERT = CERTIFICATE_FOLDER + process.env.CLOUD_CERT;
 export const CERTIFICATE_API = '/api/certificate';
+export const FORCE_UPLOAD_API = CERTIFICATE_API + '/forceUploadCertificate';

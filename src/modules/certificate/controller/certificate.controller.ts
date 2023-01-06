@@ -92,4 +92,19 @@ export class CertificateController {
     await this.certificateService.deleteCertificate(params.nodeId);
     return { status: params.nodeId };
   }
+
+  @Get('checkAndUpdate/:nodeId')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Force Update Certificate to Cloud Storage for Monitoring',
+  })
+  @ApiParam({
+    name: 'nodeId',
+    type: String,
+    description: 'e57f734f-a8ef-4c5b-b120-1856bdff6f85',
+  })
+  async checkAndUpdateCertificate(@Param() params: { nodeId: string }) {
+    await this.certificateService.checkAndUpdateCertificate(params.nodeId);
+    return { status: params.nodeId };
+  }
 }
