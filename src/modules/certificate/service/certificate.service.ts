@@ -154,9 +154,7 @@ export class CertificateService {
     const expiredCertificate = await this.certificateRepository
       .createQueryBuilder()
       .select()
-      .where(EXPIRED_QUERY)
-      .andWhere('"Certificate"."certificateIssue" != :noCert')
-      .setParameter('noCert', NO_CERT)
+      .where('"Certificate"."expiredDay" <= Now()')
       .getRawMany();
 
     return {
