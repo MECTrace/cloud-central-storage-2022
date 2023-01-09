@@ -4,7 +4,14 @@ import { X509Certificate } from 'crypto';
 import * as fs from 'fs';
 import * as https from 'https';
 import { firstValueFrom } from 'rxjs';
-import { CERTIFICATE_API, FORCE_UPLOAD_API, ROOT_CA } from 'src/constants';
+import {
+  CERTIFICATE_API,
+  CLOUD_CERT,
+  CLOUD_KEY,
+  CLOUD_REQ,
+  FORCE_UPLOAD_API,
+  ROOT_CA,
+} from 'src/constants';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { getPrefixDomain } from 'src/util/mappingNode';
 import { Repository } from 'typeorm';
@@ -199,7 +206,7 @@ export class CertificateService {
     };
   }
 
-  async deleteCertificate(nodeId: string) {
+  async deleteNodeCertificate(nodeId: string) {
     const getName = await this.nodeServices.getNodeById(nodeId);
     if (fs.existsSync(ROOT_CA)) {
       const prefix = getPrefixDomain(getName[0].name);
@@ -239,5 +246,26 @@ export class CertificateService {
         httpsAgent,
       }),
     );
+  }
+
+  async removeCertificate() {
+    try {
+      // fs.unlinkSync(CLOUD_CERT);
+      // fs.unlinkSync(CLOUD_KEY);
+      // fs.unlinkSync(CLOUD_REQ);
+      await this.certificateRepository
+        .createQueryBuilder()
+        .update(Certificate)
+        .set({
+          certificateIssue: 'No Certificate',
+          isIssued: false,
+        })
+        .where({
+          nodeId: process.env.NODE_ID,
+        })
+        .execute();
+    } catch (err) {
+      console.error(err);
+    }
   }
 }

@@ -12,13 +12,38 @@ import {
   WEB_SOCKET_GATEWAY,
 } from './constants';
 
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    httpsOptions: {
+const httpCert = () => {
+  if (
+    fs.existsSync(CLOUD_KEY) &&
+    fs.existsSync(CLOUD_CERT) &&
+    fs.existsSync(ROOT_CA)
+  ) {
+    return {
       key: fs.readFileSync(CLOUD_KEY),
       cert: fs.readFileSync(CLOUD_CERT),
       ca: fs.readFileSync(ROOT_CA),
-    },
+    };
+  }
+  return {
+    key: undefined,
+    cert: undefined,
+    ca: undefined,
+  };
+};
+
+async function bootstrap() {
+  let httpsOptions: { key: Buffer; cert: Buffer; ca: Buffer };
+  const { key, cert, ca } = httpCert();
+  if (!!key && !!cert && !!ca) {
+    httpsOptions = {
+      key,
+      cert,
+      ca,
+    };
+  }
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    httpsOptions,
   });
 
   if (fs.existsSync(ROOT_CA)) {

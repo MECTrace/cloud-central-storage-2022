@@ -88,8 +88,8 @@ export class CertificateController {
     type: String,
     description: 'e57f734f-a8ef-4c5b-b120-1856bdff6f85',
   })
-  async deleteCertificate(@Param() params: { nodeId: string }) {
-    await this.certificateService.deleteCertificate(params.nodeId);
+  async deleteNodeCertificate(@Param() params: { nodeId: string }) {
+    await this.certificateService.deleteNodeCertificate(params.nodeId);
     return { status: params.nodeId };
   }
 
@@ -106,5 +106,19 @@ export class CertificateController {
   async checkAndUpdateCertificate(@Param() params: { nodeId: string }) {
     await this.certificateService.checkAndUpdateCertificate(params.nodeId);
     return { status: params.nodeId };
+  }
+
+  @Delete()
+  @ApiOkResponse({
+    status: 200,
+    description: 'Delete Certificate',
+  })
+  async deleteCertificate() {
+    try {
+      await this.certificateService.removeCertificate();
+      return { status: 'succeeded' };
+    } catch (error) {
+      console.log(error);
+    }
   }
 }
