@@ -4,7 +4,7 @@ const splitNumberFromName = (name: string) => {
 };
 
 export const getPrefixDomain = (nameOfNode: string) => {
-  if (nameOfNode !== 'CLOUD CENTRAL')
+  if (nameOfNode.toUpperCase() !== 'CLOUD CENTRAL')
     return splitNumberFromName(nameOfNode) + '.';
   return 'ptacloud.';
 };

@@ -107,18 +107,4 @@ export class CertificateController {
     await this.certificateService.checkAndUpdateCertificate(params.nodeId);
     return { status: params.nodeId };
   }
-
-  @Delete()
-  @ApiOkResponse({
-    status: 200,
-    description: 'Delete Certificate',
-  })
-  async deleteCertificate() {
-    try {
-      await this.certificateService.removeCertificate();
-      return { status: 'succeeded' };
-    } catch (error) {
-      console.log(error);
-    }
-  }
 }
