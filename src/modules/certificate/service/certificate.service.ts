@@ -234,7 +234,6 @@ export class CertificateService {
   }
 
   async checkAndUpdateCertificate(nodeName: string) {
-    // const nodeName = await this.nodeServices.getNodeById(nodeId);
     const prefix = getPrefixDomain(nodeName);
 
     let url = process.env.NODE_URL + FORCE_UPLOAD_API;
