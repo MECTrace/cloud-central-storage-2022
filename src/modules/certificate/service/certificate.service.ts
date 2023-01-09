@@ -208,31 +208,37 @@ export class CertificateService {
 
   async deleteNodeCertificate(nodeId: string) {
     const getName = await this.nodeServices.getNodeById(nodeId);
-    if (fs.existsSync(ROOT_CA)) {
-      const prefix = getPrefixDomain(getName[0].name);
+    if (getName[0].name.toUpperCase() !== 'CLOUD CENTRAL') {
+      if (fs.existsSync(ROOT_CA)) {
+        const prefix = getPrefixDomain(getName[0].name);
 
-      let url = process.env.NODE_URL + CERTIFICATE_API;
-      if (process.env.NODE_ENV === 'PROD') {
-        url = 'https://' + prefix + process.env.DOMAIN + CERTIFICATE_API;
+        let url = process.env.NODE_URL + CERTIFICATE_API;
+        if (process.env.NODE_ENV === 'PROD') {
+          url = 'https://' + prefix + process.env.DOMAIN + CERTIFICATE_API;
+        }
+
+        const httpsAgent = new https.Agent({
+          ca: fs.readFileSync(ROOT_CA).toString(),
+        });
+
+        await firstValueFrom(
+          this.httpService.delete(url, {
+            httpsAgent,
+          }),
+        );
+        return "Don't have Certificate";
       }
-
-      const httpsAgent = new https.Agent({
-        ca: fs.readFileSync(ROOT_CA).toString(),
-      });
-
-      await firstValueFrom(
-        this.httpService.delete(url, {
-          httpsAgent,
-        }),
-      );
+    } else {
+      await this.removeCertificate();
     }
-    return "Don't have Certificate";
   }
 
-  async checkAndUpdateCertificate(nodeId: string) {
-    const getName = await this.nodeServices.getNodeById(nodeId);
-    const prefix = getPrefixDomain(getName[0].name);
+  async checkAndUpdateCertificate(nodeName: string) {
+    // const nodeName = await this.nodeServices.getNodeById(nodeId);
+    const prefix = getPrefixDomain(nodeName);
+
     let url = process.env.NODE_URL + FORCE_UPLOAD_API;
+
     if (process.env.NODE_ENV === 'PROD') {
       url = 'https://' + prefix + process.env.DOMAIN + FORCE_UPLOAD_API;
     }
@@ -248,6 +254,11 @@ export class CertificateService {
     );
   }
 
+  async getNodeName(nodeId: string) {
+    const nodeName = await this.nodeServices.getNodeById(nodeId);
+    return nodeName[0].name;
+  }
+
   async removeCertificate() {
     try {
       // fs.unlinkSync(CLOUD_CERT);
@@ -257,7 +268,7 @@ export class CertificateService {
         .createQueryBuilder()
         .update(Certificate)
         .set({
-          certificateIssue: 'No Certificate',
+          certificateIssue: NO_CERT,
           isIssued: false,
         })
         .where({

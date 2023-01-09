@@ -104,7 +104,12 @@ export class CertificateController {
     description: 'e57f734f-a8ef-4c5b-b120-1856bdff6f85',
   })
   async checkAndUpdateCertificate(@Param() params: { nodeId: string }) {
-    await this.certificateService.checkAndUpdateCertificate(params.nodeId);
+    const nodeName = await this.certificateService.getNodeName(params.nodeId);
+    if (nodeName === 'Cloud Central') {
+      await this.forceUploadCertificates();
+    } else {
+      await this.certificateService.checkAndUpdateCertificate(nodeName);
+    }
     return { status: params.nodeId };
   }
 }
