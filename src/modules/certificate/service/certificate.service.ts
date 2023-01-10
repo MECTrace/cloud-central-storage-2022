@@ -221,7 +221,6 @@ export class CertificateService {
           ca: fs.readFileSync(ROOT_CA).toString(),
         });
 
-        console.log('httpsAgent Cloud', httpsAgent);
         await firstValueFrom(
           this.httpService.delete(url, {
             httpsAgent,
@@ -246,11 +245,13 @@ export class CertificateService {
       ca: fs.readFileSync(ROOT_CA).toString(),
     });
 
-    await firstValueFrom(
+    const res = await firstValueFrom(
       this.httpService.get(url, {
         httpsAgent,
       }),
     );
+
+    console.log(res.data);
   }
 
   async getNodeName(nodeId: string) {
