@@ -221,12 +221,12 @@ export class CertificateService {
           ca: fs.readFileSync(ROOT_CA).toString(),
         });
 
+        console.log('httpsAgent Cloud', httpsAgent);
         await firstValueFrom(
           this.httpService.delete(url, {
             httpsAgent,
           }),
         );
-        return "Don't have Certificate";
       }
     } else {
       await this.removeCertificate();
