@@ -76,7 +76,6 @@ export class CertificateService {
       ]);
       return { status: 'succeeded' };
     } catch (err) {
-      console.log(err);
       return { status: 'failed' };
     }
   }
@@ -221,11 +220,21 @@ export class CertificateService {
           ca: fs.readFileSync(ROOT_CA).toString(),
         });
 
-        await firstValueFrom(
-          this.httpService.delete(url, {
-            httpsAgent,
-          }),
-        );
+        try {
+          await firstValueFrom(
+            this.httpService.delete(url, {
+              httpsAgent,
+            }),
+          );
+        } catch (err) {
+          await firstValueFrom(
+            this.httpService.delete(url, {
+              httpsAgent: new https.Agent({
+                rejectUnauthorized: false,
+              }),
+            }),
+          );
+        }
       }
     } else {
       await this.removeCertificate();
@@ -245,13 +254,21 @@ export class CertificateService {
       ca: fs.readFileSync(ROOT_CA).toString(),
     });
 
-    const res = await firstValueFrom(
-      this.httpService.get(url, {
-        httpsAgent,
-      }),
-    );
-
-    console.log(res.data);
+    try {
+      await firstValueFrom(
+        this.httpService.get(url, {
+          httpsAgent,
+        }),
+      );
+    } catch (err) {
+      await firstValueFrom(
+        this.httpService.get(url, {
+          httpsAgent: new https.Agent({
+            rejectUnauthorized: false,
+          }),
+        }),
+      );
+    }
   }
 
   async getNodeName(nodeId: string) {
