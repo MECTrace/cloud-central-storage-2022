@@ -7,6 +7,8 @@ import { TypeOrmConfigService } from './config/database/typeorm-config.service';
 import { EventModule } from './modules/event/event.module';
 import { NodeModule } from './modules/node/node.module';
 import { CertificateModule } from './modules/certificate/certificate.module';
+import { PolicyModule } from './modules/policy/policy.module';
+import { PolicyManagerModule } from './modules/policy-manager/policy-manager.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { CertificateModule } from './modules/certificate/certificate.module';
     NodeModule,
     EventModule,
     CertificateModule,
+    PolicyModule,
+    PolicyManagerModule,
   ],
   providers: [AppGateway],
 })

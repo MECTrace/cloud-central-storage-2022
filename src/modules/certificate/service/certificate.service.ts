@@ -4,14 +4,7 @@ import { X509Certificate } from 'crypto';
 import * as fs from 'fs';
 import * as https from 'https';
 import { firstValueFrom } from 'rxjs';
-import {
-  CERTIFICATE_API,
-  CLOUD_CERT,
-  CLOUD_KEY,
-  CLOUD_REQ,
-  FORCE_UPLOAD_API,
-  ROOT_CA,
-} from 'src/constants';
+import { CERTIFICATE_API, FORCE_UPLOAD_API, ROOT_CA } from 'src/constants';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { getPrefixDomain } from 'src/util/mappingNode';
 import { Repository } from 'typeorm';

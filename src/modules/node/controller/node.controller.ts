@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Param, Body } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ListNodeDto } from '../dto/list-node.dto';
 import { NodeService } from '../service/node.service';
@@ -20,4 +20,34 @@ export class NodeController {
   getAllNodes() {
     return this.nodeService.findAll();
   }
+
+
+  @Get('getCPUCurrentNode')
+  @ApiOperation({
+    description: `Get CPU of Current Node`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get CPU successfully',
+  })
+  getCPUCurrentNode() {
+    return this.nodeService.getCPUCurrentNode();
+  }
+
+  @Get('getAvailableNode')
+  @ApiOperation({
+    description: `Get Available Node`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get Available Node successfully',
+  })
+  getAvailableNode() {
+    return this.nodeService.getAvailableNode();
+  }
+
+  // @Get('getSendNode')
+  // getSendNode() {
+  //   return this.nodeService.getSendNode();
+  // }
 }

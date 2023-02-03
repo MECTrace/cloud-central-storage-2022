@@ -8,12 +8,14 @@ import { FileService } from '../file/service/file.service';
 import { File } from '../file/entity/file.entity';
 import { NodeService } from '../node/service/node.service';
 import { Node } from '../node/entity/node.entity';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event]),
     TypeOrmModule.forFeature([File]),
     TypeOrmModule.forFeature([Node]),
+    HttpModule,
   ],
   controllers: [EventController],
   providers: [EventService, FileService, NodeService, EventGateway],
