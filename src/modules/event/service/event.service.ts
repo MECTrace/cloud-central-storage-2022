@@ -63,7 +63,7 @@ export class EventService {
 
   async uploadFromNode(
     @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string, cpu_limit: number},
+    @Body() post: { sendNode: string, cpu_limit: number },
   ) {
     const receiveNodeId = process.env.NODE_ID;
     const sendNode = post.sendNode;
@@ -79,8 +79,8 @@ export class EventService {
     };
 
     const path =
-      `${process.env.AZURE_STORAGE_CONTAINER}/` +
-      `${process.env.VM_NAME}/${file.originalname}`;
+      `/${process.env.AZURE_STORAGE_CONTAINER}` +
+      `/${process.env.VM_NAME}/${file.originalname}`;
 
     const findFileId: string = await this.fileService.findByPath(path);
     if (!findFileId) {
