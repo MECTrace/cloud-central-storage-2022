@@ -58,11 +58,9 @@ export class NodeService {
       .execute() as Promise<{ name: string }[]>;
   }
 
-
   // get token to access azure
   async getAccessToken() {
-    const url =
-      `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/token`
+    const url = `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/token`
 
     const payload = {
       grant_type: 'client_credentials',
@@ -81,21 +79,20 @@ export class NodeService {
     return data.access_token;
   }
 
-
   // get cpu by vmName
   async getCPU(vmName: string) {
-    let access_token = await this.getAccessToken();
+    const access_token = await this.getAccessToken();
 
     const headersRequest = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${access_token}`,
     };
 
-    let now = new Date();
-    let beginTime = new Date(
+    const now = new Date();
+    const beginTime = new Date(
       new Date().setTime(now.getTime() - 10 * 60 * 1000),
     ).toISOString();
-    let endTime = new Date(now).toISOString();
+    const endTime = new Date(now).toISOString();
 
     const url =
       `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
@@ -115,7 +112,6 @@ export class NodeService {
     }
   }
 
-
   // get CPU current node
   async getCPUCurrentNode() {
     const cpu_usage = await this.getCPU(process.env.VM_NAME);
@@ -126,10 +122,8 @@ export class NodeService {
     };
   }
 
-
   // get available node (only cloud central)
   async getAvailableNode(currentNode: string, cpuLimit: number) {
-
     // get data node list
     const nodeList = await this.findAll();
 
@@ -137,25 +131,21 @@ export class NodeService {
     const vmOfNodes = [];
 
     nodeList
-      .filter(
-        (element) =>
-          element.status === 'On' && 
-          element.id != currentNode,
-      )
-      .forEach(
-        (element) => 
-          vmOfNodes.push({
-            name: element.name,
-            vmName: element.vmName,
-            nodeURL: element.nodeURL}));
+      .filter((element) => element.status === 'On' && element.id != currentNode)
+      .forEach((element) => 
+        vmOfNodes.push({
+          name: element.name,
+          vmName: element.vmName,
+          nodeURL: element.nodeURL,
+        }),
+      );
 
     // call api get cpu and add to available node list
     const vmOfAvailableNodes = [];
 
     for (const vm of vmOfNodes) {
-      
       const cpu = await this.getCPU(vm.vmName);
-      
+
       if (cpu.average < cpuLimit) {
         vmOfAvailableNodes.push({
           vmName: vm.vmName,
