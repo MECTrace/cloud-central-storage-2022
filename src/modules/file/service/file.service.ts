@@ -21,10 +21,9 @@ export class FileService {
     const fileType = fileName !== 'undefined' ? fileExt : 'undefined';
     const path =
       fileName !== 'undefined' ? 
-        `https://pentaedgestorage.blob.core.windows.net/` +
-        `${process.env.AZURE_STORAGE_CONTAINER}/` + 
-        `${prefix}/${file.originalname}` : 
-        'undefined';
+        `/${process.env.AZURE_STORAGE_CONTAINER}` +
+        `/${prefix}/${file.originalname}`
+        : 'undefined';
     return this.fileRepository
       .createQueryBuilder()
       .insert()
