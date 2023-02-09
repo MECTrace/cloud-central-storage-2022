@@ -18,16 +18,23 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { HttpService } from '@nestjs/axios';
 import { Response } from 'express';
 import { SocketEvents, SocketStatus, STATUS, SWAGGER_API } from 'src/constants';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { FileService } from '../../file/service/file.service';
 import { FileUploadDto } from '../dto/fileUpload.dto';
+import { FileUploadFromNodeDto } from '../dto/fileUploadFromNode.dto';
 import { EventGateway } from '../event.gateway';
 import { IEventResult, IGetBySendNodeId, IInsertResult } from '../interfaces';
 import { EventService } from '../service/event.service';
 import { PaginationParams } from '../../../util/paginationParams';
 import { summaryDto } from '../dto/summary.dto';
+import { PolicyManagerService } from 'src/modules/policy-manager/service/policy-manager.service';
+import * as FormData from 'form-data';
+import { lastValueFrom } from 'rxjs';
+import { diskStorage } from 'multer';
+import { existsSync, mkdirSync } from 'fs';
 
 @ApiTags('Upload file API')
 @Controller('event')
@@ -37,135 +44,114 @@ export class EventController {
     private fileService: FileService,
     private nodeService: NodeService,
     private eventGateway: EventGateway,
+    private policyManagerService: PolicyManagerService,
+    private httpService: HttpService,
   ) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('fileUpload'))
+  @UseInterceptors(
+    FileInterceptor('fileUpload', {
+      storage: diskStorage({
+        // Destination storage path details
+        destination: (req: any, file: any, cb: any) => {
+          const uploadPath = process.env.UPLOAD_LOCATION;
+          // Create folder if doesn't exist
+          if (!existsSync(uploadPath)) {
+            mkdirSync(uploadPath);
+          }
+          cb(null, uploadPath);
+        },
+        // File modification details
+        filename: (req: any, file: any, cb: any) => {
+          // Calling the callback passing the original name
+          cb(null, file.originalname);
+        },
+      }),
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     type: FileUploadDto,
   })
-  async upload(
+  upload(@UploadedFile() file: Express.Multer.File) {
+    console.log(file);
+  }
+
+  @Post('uploadFromNode')
+  @UseInterceptors(FileInterceptor('fileUpload'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: FileUploadFromNodeDto,
+  })
+  async uploadFromNode(
     @UploadedFile() file: Express.Multer.File,
     @Body() post: { sendNode: string },
-    @Res() res: Response,
   ) {
-    const receiveNodeId = process.env.NODE_ID;
-    const sendNode = post.sendNode;
-    const nodeResult = await this.nodeService.findOne(sendNode);
-    const sendNodeId = nodeResult.id;
+    // find limit to accept send file
+    // policy of current node
+    const policy = await this.policyManagerService.getPolicyByNodeId(
+      process.env.NODE_ID,
+    );
 
-    let tempId: string;
+    const nodeName = policy[0]['nodeName'];
+    const cpuOverPercent = policy[0]['cpuOverPercent'];
+    const cpuLessThanPercent = policy[0]['cpuLessThanPercent'];
+    const numberResendNode = policy[0]['numberResendNode'];
 
-    const name =
-      file?.originalname.substring(0, file.originalname.lastIndexOf('.')) || '';
+    // util func to set timeout
+    async function timeout(ms: number) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
 
-    const findFileId: string = await this.fileService.findByFileName(name);
+    // send file
+    const postBody = { sendNode: post.sendNode, cpu_limit: cpuOverPercent};
+    const { status, eventId } = await this.eventService.uploadFromNode(
+      file,
+      postBody,
+    );
 
-    const optionEvent = <IGetBySendNodeId>{
-      sendNodeId,
-      receiveNodeId,
-    };
+    // if send fail, we redirect to send others
+    if (!status) {
+      await timeout(3000);
+      const availableNode = await this.nodeService.getAvailableNode(
+        process.env.NODE_ID,
+        cpuLessThanPercent,
+      );
+      const receiveNode = availableNode.availableNode as string;
 
-    this.eventService
-      .upload(file)
-      .then(async () => {
-        if (!findFileId) {
-          const createdFile: IInsertResult = await this.fileService.create(
-            file,
-          );
-          const insertedFileId: string = createdFile.raw[0].id;
-          const createdEvent: IInsertResult = await this.eventService.create({
-            ...optionEvent,
-            status: STATUS.PENDING,
-            fileId: insertedFileId,
-          });
-
-          const insertedEventId: string = createdEvent.raw[0].id;
-
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_INIT, {
-            id: insertedEventId,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.PENDING,
-          });
-
-          return { id: insertedEventId, fileId: insertedFileId };
-        } else {
-          const createdEvent: IInsertResult = await this.eventService.create({
-            ...optionEvent,
-            status: STATUS.PENDING,
-            fileId: findFileId,
-          });
-          const insertedEventId: string = createdEvent.raw[0].id;
-
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_INIT, {
-            id: insertedEventId,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.PENDING,
-          });
-          return { id: insertedEventId, fileId: findFileId };
-        }
-      })
-      .then(async ({ id, fileId }) => {
-        const ds: IEventResult[] = await this.eventService.getByFileId(fileId);
-        if (ds.length === 1) {
-          await this.eventService.update(ds[0].event_id, STATUS.SUCCESS);
-          tempId = ds[0].event_id;
-          setTimeout(() => {
-            this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-              id,
-              receiveNodeId,
-              sendNodeId,
-              status: SocketStatus.SUCCESS,
-            });
-          }, 2000);
-        } else if (ds.length > 1) {
-          const index = ds.length - 1;
-          tempId = ds[index].event_id;
-          await this.eventService.update(ds[index].event_id, STATUS.FAIL);
-          throw Error(ds[index].event_id);
-        } else {
-          return;
-        }
-        res.send({ status: true, message: '' });
-      })
-      .catch(async (data: { message: string }) => {
-        if (!findFileId) {
-          const rs: IInsertResult = await this.fileService.create({
-            ...file,
-            originalname: 'undefined',
-          });
-
-          await this.eventService.create({
-            ...optionEvent,
-            status: STATUS.FAIL,
-            fileId: rs.raw[0].id,
-          });
-        }
-        setTimeout(() => {
-          const id = data.message;
-
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-            id,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.FAIL,
-          });
-        }, 2000);
-        res.send({ status: false, message: data.message });
-      })
-      .finally(() => {
-        setTimeout(() => {
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-            id: tempId,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.DONE,
-          });
-        }, 4000);
+      await this.eventService.reSend(file, {
+        sendNode: nodeName,
+        receiveNode: receiveNode,
+        numberResendNode: numberResendNode,
       });
+    }
+    return {
+      status: status,
+      eventId: eventId,
+    };
+  }
+
+  @Post('resend')
+  @UseInterceptors(FileInterceptor('fileUpload'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: FileUploadFromNodeDto,
+  })
+  async reSend(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() post: { sendNode: string },
+  ) {
+    // find limit to accept send file
+    const policy = await this.policyManagerService.getPolicyByNodeId(
+      process.env.NODE_ID,
+    );
+
+    // send file
+    const postBody = {
+      sendNode: post.sendNode,
+      cpu_limit: policy[0].cpuOverPercent,
+    };
+    return this.eventService.uploadFromNode(file, postBody);
   }
 
   @Get('summary')

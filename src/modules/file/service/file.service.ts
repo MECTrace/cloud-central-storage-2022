@@ -9,7 +9,7 @@ export class FileService {
     @InjectRepository(File) public fileRepository: Repository<File>,
   ) {}
 
-  async create(file: Express.Multer.File) {
+  async create(prefix: string, file: Express.Multer.File) {
     const fileName =
       file.originalname.substring(0, file.originalname.lastIndexOf('.')) || '';
     const fileExt =
@@ -20,7 +20,11 @@ export class FileService {
 
     const fileType = fileName !== 'undefined' ? fileExt : 'undefined';
     const path =
-      fileName !== 'undefined' ? `/${file.originalname}` : 'undefined';
+      fileName !== 'undefined' ? 
+        `https://pentaedgestorage.blob.core.windows.net/` +
+        `${process.env.AZURE_STORAGE_CONTAINER}/` + 
+        `${prefix}/${file.originalname}` : 
+        'undefined';
     return this.fileRepository
       .createQueryBuilder()
       .insert()
@@ -35,14 +39,25 @@ export class FileService {
       .execute();
   }
 
-  async findByFileName(fileName: string): Promise<string> {
+  async findByPath(path: string): Promise<string> {
     const rs: IFileResult[] = (await this.fileRepository
       .createQueryBuilder('file')
       .select()
       .where({
-        fileName,
+        path,
       })
       .execute()) as IFileResult[];
     return rs?.[0]?.file_id;
+  }
+
+  async update(id: string, path: string) {
+    await this.fileRepository
+      .createQueryBuilder()
+      .update(File)
+      .set({ path })
+      .where({
+        id: id,
+      })
+      .execute();
   }
 }

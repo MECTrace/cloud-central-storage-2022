@@ -37,4 +37,12 @@ export class Node {
     onUpdate: 'now()',
   })
   public updatedAt: Date;
+
+  @ApiProperty()
+  @Column()
+  vmName: string;
+
+  @ApiProperty()
+  @Column()
+  nodeURL: string;
 }

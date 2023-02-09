@@ -3,4 +3,5 @@ export const shuffleArray = (array) => {
     let j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+  return array;
 };

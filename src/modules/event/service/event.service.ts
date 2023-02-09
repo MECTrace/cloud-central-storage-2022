@@ -1,12 +1,21 @@
+import { HttpService } from '@nestjs/axios';
 import { BlobServiceClient, BlockBlobClient } from '@azure/storage-blob';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UploadedFile, Body, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { File } from '../../file/entity/file.entity';
 import { Node } from '../../node/entity/node.entity';
 import { getEventBySendNodeId } from '../dto/getBySendNode.dto';
 import { Event } from '../entity/event.entity';
-import { IEventResult } from '../interfaces';
+import { IEventResult, IInsertResult } from '../interfaces';
+import { NodeService } from 'src/modules/node/service/node.service';
+import { FileService } from 'src/modules/file/service/file.service';
+import { EventGateway } from '../event.gateway';
+import { SocketEvents, SocketStatus, STATUS, SWAGGER_API } from 'src/constants';
+import { EventController } from '../controller/event.controller';
+import * as FormData from 'form-data';
+import { lastValueFrom } from 'rxjs';
+
 export interface IGetBySendNodeId {
   fileId: string;
   sendNode: string;
@@ -29,21 +38,194 @@ export class EventService {
   }
 
   constructor(
-    @InjectRepository(Event) private eventRepository: Repository<Event>,
+    @InjectRepository(Event)
+    private eventRepository: Repository<Event>,
+    private nodeService: NodeService,
+    private fileService: FileService,
+    private eventGateway: EventGateway,
+    private httpService: HttpService,
   ) {}
 
-  async upload(file: Express.Multer.File) {
+  async upload(prefix: string, file: Express.Multer.File) {
     try {
       const blobClient = this.getBlobClient(
-        file.originalname,
+        prefix + file.originalname,
         process.env.AZURE_STORAGE_CONTAINER,
       );
       await blobClient.uploadData(file.buffer, {
-        blockSize: 1024, // 4MB block size
+        blockSize: 4 * 1024 * 1024, // 4MB block size
         concurrency: 20, // 20 concurrency
       });
     } catch (err) {
       // throw Error(err);
+    }
+  }
+
+  async uploadFromNode(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() post: { sendNode: string, cpu_limit: number},
+  ) {
+    const receiveNodeId = process.env.NODE_ID;
+    const sendNode = post.sendNode;
+    const cpu_limit = post.cpu_limit;
+    const nodeResult = await this.nodeService.findOne(sendNode);
+    const sendNodeId = nodeResult.id;
+    let fileId: string;
+    let isSuccess = false;
+
+    const optionEvent = <IGetBySendNodeId>{
+      sendNodeId,
+      receiveNodeId,
+    };
+
+    const path =
+      `${process.env.AZURE_STORAGE_CONTAINER}/` +
+      `${process.env.VM_NAME}/${file.originalname}`;
+
+    const findFileId: string = await this.fileService.findByPath(path);
+    if (!findFileId) {
+      const createdFile: IInsertResult = await this.fileService.create(
+        `${process.env.VM_NAME}`,
+        file,
+      );
+      fileId = createdFile.raw[0].id;
+    } else {
+      fileId = findFileId;
+    }
+
+    const createdEvent: IInsertResult = await this.create({
+      ...optionEvent,
+      status: STATUS.PENDING,
+      fileId: fileId,
+    });
+    const insertedEventId: string = createdEvent.raw[0].id;
+
+    this.eventGateway.server.emit(SocketEvents.CENTRAL_INIT, {
+      id: insertedEventId,
+      receiveNodeId,
+      sendNodeId,
+      status: SocketStatus.PENDING,
+    });
+
+    try {
+      const infoCurrentNode = await this.nodeService.getCPUCurrentNode();
+      const cpu = infoCurrentNode.cpuUsage as number;
+
+      if (cpu < cpu_limit) {
+        // accept to send file
+        const form = new FormData();
+        form.append('fileUpload', file.buffer, {
+          filename: file.originalname,
+        });
+
+        try {
+          const url = process.env.NODE_URL + '/api/event/upload';
+          await lastValueFrom(
+            this.httpService.post(url, form, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            }),
+          );
+        } catch {
+          // throw error
+          console.log('[Error] Cannot send file');
+        }
+
+        // upload to backup
+        await this.upload(`${process.env.VM_NAME}/`, file);
+
+        // update event and file table
+        await this.fileService.update(findFileId, path);
+        await this.update(insertedEventId, STATUS.SUCCESS);
+        isSuccess = true;
+
+        setTimeout(() => {
+          this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+            id: insertedEventId,
+            receiveNodeId,
+            sendNodeId,
+            status: SocketStatus.SUCCESS,
+          });
+        }, 2000);
+      } else {
+        // throw error
+        throw Error(insertedEventId);
+      }
+    } catch {
+      // Cant meet cpu condition
+      // upload to backup
+      await this.upload(`${process.env.VM_NAME}/`, file);
+
+      // update event and file table
+      await this.fileService.update(findFileId, path);
+      await this.update(insertedEventId, STATUS.FAIL);
+
+      setTimeout(() => {
+        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+          id: insertedEventId,
+          receiveNodeId,
+          sendNodeId,
+          status: SocketStatus.FAIL,
+        });
+      }, 2000);
+    } finally {
+      setTimeout(() => {
+        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+          id: insertedEventId,
+          receiveNodeId,
+          sendNodeId,
+          status: SocketStatus.DONE,
+        });
+      }, 4000);
+    }
+    return {
+      status: isSuccess,
+      eventId: insertedEventId,
+    };
+  }
+
+  async reSend(
+    @UploadedFile() file: Express.Multer.File,
+    @Body()
+    post: {
+      sendNode: string;
+      receiveNode: any;
+      numberResendNode: number;
+    },
+  ) {
+    let count = 0;
+    for (const node of post.receiveNode) {
+      console.log(count, post.numberResendNode);
+      if (count >= post.numberResendNode) {
+        break;
+      }
+
+      // begin to send file
+      const form = new FormData();
+      form.append('fileUpload', file.buffer, {
+        filename: file.originalname,
+      });
+      form.append('sendNode', post.sendNode);
+
+      try {
+        const url = node.nodeURL + '/api/event/resend';
+        const { data } = await lastValueFrom(
+          this.httpService.post(url, form, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }),
+        );
+
+        if (!data["status"]) {
+          throw Error();
+        }
+        count += 1;
+      } catch {
+        // throw error
+        console.log('[Error] Cannot send file');
+      }
     }
   }
 

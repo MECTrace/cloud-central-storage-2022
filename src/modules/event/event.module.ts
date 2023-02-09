@@ -9,16 +9,28 @@ import { File } from '../file/entity/file.entity';
 import { NodeService } from '../node/service/node.service';
 import { Node } from '../node/entity/node.entity';
 import { HttpModule } from '@nestjs/axios';
-
+import { Policy } from '../policy/entity/policy.entity';
+import { PolicyService } from '../policy/service/policy.service';
+import { PolicyManager } from '../policy-manager/entity/policy-manager.entity';
+import { PolicyManagerService} from '../policy-manager/service/policy-manager.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Event]),
     TypeOrmModule.forFeature([File]),
     TypeOrmModule.forFeature([Node]),
+    TypeOrmModule.forFeature([PolicyManager]),
+    TypeOrmModule.forFeature([Policy]),
     HttpModule,
   ],
   controllers: [EventController],
-  providers: [EventService, FileService, NodeService, EventGateway],
+  providers: [
+    EventService,
+    FileService, 
+    NodeService, 
+    EventGateway, 
+    PolicyManagerService,
+    PolicyService,
+  ],
   exports: [EventService],
 })
 export class EventModule {}

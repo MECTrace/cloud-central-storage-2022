@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -47,7 +47,7 @@ export class PolicyManagerController {
     return data;
   }
 
-  @Get('getPolicyByNodeId')
+  @Get('getPolicyByNodeId/:nodeId')
   @ApiOperation({
     description: `Get Policy By Node Id`,
   })
@@ -56,7 +56,7 @@ export class PolicyManagerController {
     description: 'Get succeeded',
   })
   getPolicyByNodeId(@Param('nodeId') nodeId: string) {
-    return this.policyManagerService.findOne(nodeId);
+    return this.policyManagerService.getPolicyByNodeId(nodeId);
   }
 
   @Patch(':nodeId')

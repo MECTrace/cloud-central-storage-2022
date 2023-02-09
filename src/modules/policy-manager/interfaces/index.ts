@@ -17,6 +17,7 @@ export interface ResAllPolices {
 export interface ResPolices {
   id: string;
   policyName: string;
+  nodeName: string;
   description: string;
   cpuOverPercent: number;
   cpuLessThanPercent: number;

@@ -2,9 +2,9 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
-import { getVMName } from 'src/util/getVMName';
 import { Repository } from 'typeorm';
 import { Node } from '../entity/node.entity';
+import { shuffleArray } from 'src/util/shuffleArray';
 
 @Injectable()
 export class NodeService {
@@ -25,7 +25,9 @@ export class NodeService {
         '"node"."id"',
         '"node"."name"',
         '"node"."typeNode"',
+        '"node"."vmName"',
         '"node"."status"',
+        '"node"."nodeURL"',
         '"node"."createdAt"',
         '"node"."updatedAt"',
       ])
@@ -56,8 +58,11 @@ export class NodeService {
       .execute() as Promise<{ name: string }[]>;
   }
 
+
+  // get token to access azure
   async getAccessToken() {
-    const url = process.env.VM_URL;
+    const url =
+      `https://login.microsoftonline.com/${process.env.TENANT_ID}/oauth2/token`
 
     const payload = {
       grant_type: 'client_credentials',
@@ -76,6 +81,8 @@ export class NodeService {
     return data.access_token;
   }
 
+
+  // get cpu by vmName
   async getCPU(vmName: string) {
     let access_token = await this.getAccessToken();
 
@@ -86,7 +93,7 @@ export class NodeService {
 
     let now = new Date();
     let beginTime = new Date(
-      new Date().setTime(now.getTime() - 5 * 60 * 1000),
+      new Date().setTime(now.getTime() - 10 * 60 * 1000),
     ).toISOString();
     let endTime = new Date(now).toISOString();
 
@@ -106,9 +113,10 @@ export class NodeService {
         return timeseries_data[i];
       }
     }
-    return [];
   }
 
+
+  // get CPU current node
   async getCPUCurrentNode() {
     const cpu_usage = await this.getCPU(process.env.VM_NAME);
     return {
@@ -118,51 +126,48 @@ export class NodeService {
     };
   }
 
-  async getAvailableNode() {
-    // Chinh lai thanh cloud url
-    // const url = 'http://localhost:3001/api/node/list';
-    const url = process.env.NODE_URL + '/api/node/list';
+
+  // get available node (only cloud central)
+  async getAvailableNode(currentNode: string, cpuLimit: number) {
 
     // get data node list
-    const { data } = await firstValueFrom(this.httpService.get(url));
+    const nodeList = await this.findAll();
 
-    const nameOfAvailableNodes = [];
+    // filter node that we need to get cpu
     const vmOfNodes = [];
-    const vmOfAvailableNodes = [];
 
-    // get available node
-    data
+    nodeList
       .filter(
         (element) =>
-          element.status === 'On' && element.id != process.env.NODE_ID,
+          element.status === 'On' && 
+          element.id != currentNode,
       )
-      .forEach((element) => nameOfAvailableNodes.push(element.name));
+      .forEach(
+        (element) => 
+          vmOfNodes.push({
+            name: element.name,
+            vmName: element.vmName,
+            nodeURL: element.nodeURL}));
 
-    // get name of vms
-    nameOfAvailableNodes.forEach((element) => {
-      const vmName = getVMName(element);
-      vmOfNodes.push(vmName);
-    });
+    // call api get cpu and add to available node list
+    const vmOfAvailableNodes = [];
 
-    // call api get usage cpu
-    for (const vmName of vmOfNodes) {
-      const cpu = await this.getCPU(vmName);
-      // set 1 for debug only
-      if (cpu.average < 1) {
+    for (const vm of vmOfNodes) {
+      
+      const cpu = await this.getCPU(vm.vmName);
+      
+      if (cpu.average < cpuLimit) {
         vmOfAvailableNodes.push({
-          vmName: vmName,
+          vmName: vm.vmName,
+          name: vm.name,
+          nodeURL: vm.nodeURL,
           cpuUsage: cpu.average,
           updateAt: cpu.timeStamp,
         });
       }
     }
     return {
-      availableNode: vmOfAvailableNodes,
+      availableNode: shuffleArray(vmOfAvailableNodes),
     };
   }
-
-  // async getSendNode() {
-  //   const availableNode = await this.getAvailableNode();
-  //   return await shuffleArray(availableNode["availableNode"]);
-  // }
 }

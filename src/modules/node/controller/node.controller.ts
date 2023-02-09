@@ -1,5 +1,5 @@
 import { Controller, Get, Put, Patch, Param, Body } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
 import { ListNodeDto } from '../dto/list-node.dto';
 import { NodeService } from '../service/node.service';
 
@@ -21,7 +21,6 @@ export class NodeController {
     return this.nodeService.findAll();
   }
 
-
   @Get('getCPUCurrentNode')
   @ApiOperation({
     description: `Get CPU of Current Node`,
@@ -34,7 +33,7 @@ export class NodeController {
     return this.nodeService.getCPUCurrentNode();
   }
 
-  @Get('getAvailableNode')
+  @Get('getAvailableNode/:currentNode/:cpuLimit')
   @ApiOperation({
     description: `Get Available Node`,
   })
@@ -42,12 +41,10 @@ export class NodeController {
     status: 200,
     description: 'Get Available Node successfully',
   })
-  getAvailableNode() {
-    return this.nodeService.getAvailableNode();
+  getAvailableNode(
+    @Param('currentNode') currentNode: string,
+    @Param('cpuLimit') cpuLimit: number,
+  ) {
+    return this.nodeService.getAvailableNode(currentNode, cpuLimit);
   }
-
-  // @Get('getSendNode')
-  // getSendNode() {
-  //   return this.nodeService.getSendNode();
-  // }
 }
