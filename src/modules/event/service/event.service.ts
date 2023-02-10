@@ -11,10 +11,12 @@ import { IEventResult, IInsertResult } from '../interfaces';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { FileService } from 'src/modules/file/service/file.service';
 import { EventGateway } from '../event.gateway';
-import { SocketEvents, SocketStatus, STATUS, SWAGGER_API } from 'src/constants';
+import { SocketEvents, SocketStatus, STATUS, SWAGGER_API, ROOT_CA } from 'src/constants';
 import { EventController } from '../controller/event.controller';
 import * as FormData from 'form-data';
 import { lastValueFrom } from 'rxjs';
+import * as fs from 'fs';
+import * as https from 'https';
 
 export interface IGetBySendNodeId {
   fileId: string;
@@ -125,6 +127,9 @@ export class EventService {
               headers: {
                 'Content-Type': 'multipart/form-data',
               },
+              httpsAgent: new https.Agent({
+                rejectUnauthorized: false,
+              }),
             }),
           );
         } catch {
@@ -210,15 +215,37 @@ export class EventService {
 
       try {
         const url = node.nodeURL + '/api/event/resend';
-        const { data } = await lastValueFrom(
-          this.httpService.post(url, form, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }),
-        );
 
-        if (!data["status"]) {
+        const httpsAgent = new https.Agent({
+          ca: fs.readFileSync(ROOT_CA).toString(),
+        });
+
+        let isSuccess: any;
+        try {
+          const { data } = await lastValueFrom(
+            this.httpService.post(url, form, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              httpsAgent: httpsAgent,
+            }),
+          );
+          isSuccess = data;
+        } catch (err) {
+          const { data } = await lastValueFrom(
+            this.httpService.post(url, form, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              httpsAgent: new https.Agent({
+                rejectUnauthorized: false,
+              }),
+            }),
+          );
+          isSuccess = data;
+        }
+
+        if (!isSuccess.status) {
           throw Error();
         }
         count += 1;
