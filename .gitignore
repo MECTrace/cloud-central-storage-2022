@@ -45,4 +45,5 @@ lerna-debug.log*
 cert/*.pem
 cert/rootCA.cnf
 cert/cert.cnf
+v3.ext
 /upload

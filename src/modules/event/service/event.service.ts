@@ -119,7 +119,7 @@ export class EventService {
         });
 
         try {
-          const url = process.env.NODE_URL + '/api/event/upload';
+          const url = process.env.CLOUD_URL + '/api/event/upload';
           await lastValueFrom(
             this.httpService.post(url, form, {
               headers: {
