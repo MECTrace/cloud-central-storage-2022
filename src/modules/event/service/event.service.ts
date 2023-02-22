@@ -26,6 +26,7 @@ export interface IGetBySendNodeId {
   status: string;
   createdAt: string;
   fileType: string;
+  policyName: string;
 }
 @Injectable()
 export class EventService {
@@ -64,11 +65,12 @@ export class EventService {
 
   async uploadFromNode(
     @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string; cpu_limit: number },
+    @Body() post: { sendNode: string; cpu_limit: number; policyName: string },
   ) {
     const receiveNodeId = process.env.NODE_ID;
     const sendNode = post.sendNode;
     const cpu_limit = post.cpu_limit;
+    const policyName = post.policyName;
     const nodeResult = await this.nodeService.findOne(sendNode);
     const sendNodeId = nodeResult.id;
     let fileId: string;
@@ -77,6 +79,7 @@ export class EventService {
     const optionEvent = <IGetBySendNodeId>{
       sendNodeId,
       receiveNodeId,
+      policyName,
     };
 
     const path =
@@ -120,7 +123,7 @@ export class EventService {
         });
 
         try {
-          const url = process.env.CLOUD_URL + '/api/event/upload';
+          const url = process.env.NODE_URL + '/api/event/upload';
           await lastValueFrom(
             this.httpService.post(url, form, {
               headers: {
@@ -131,6 +134,7 @@ export class EventService {
               }),
             }),
           );
+          console.log('[Success] Send file successfully');
         } catch {
           // throw error
           console.log('[Error] Cannot send file');
@@ -250,7 +254,7 @@ export class EventService {
         count += 1;
       } catch {
         // throw error
-        console.log('[Error] Cannot send file');
+        console.log('[Error] Cannot resend file');
       }
     }
   }
@@ -336,6 +340,7 @@ export class EventService {
     receiveNodeId,
     fileId,
     status,
+    policyName,
   }: IGetBySendNodeId) {
     return this.eventRepository
       .createQueryBuilder()
@@ -347,6 +352,7 @@ export class EventService {
           receiveNodeId,
           status,
           fileId,
+          policyName,
         },
       ])
       .execute();
@@ -380,6 +386,31 @@ export class EventService {
         status: 'Succeeded',
       })
       .getCount();
+    return { total, numberOfFailed, numberOfSucceed };
+  }
+
+  async getNumberOfFilesUpload(sendNodeId: string, receiveNodeId: string) {
+    const repo = this.eventRepository;
+    const numberOfFailed = await repo
+      .createQueryBuilder()
+      .select()
+      .where({
+        status: 'Failed',
+        sendNodeId: sendNodeId,
+        receiveNodeId: receiveNodeId,
+      })
+      .getCount();
+    const numberOfSucceed = await repo
+      .createQueryBuilder()
+      .select()
+      .where({
+        status: 'Succeeded',
+        sendNodeId: sendNodeId,
+        receiveNodeId: receiveNodeId,
+      })
+      .getCount();
+
+    const total = numberOfFailed + numberOfSucceed;
     return { total, numberOfFailed, numberOfSucceed };
   }
 }

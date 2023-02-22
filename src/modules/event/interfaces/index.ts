@@ -7,6 +7,7 @@ export interface IGetBySendNodeId {
   status: string;
   createdAt: string;
   fileType: string;
+  policyName: string;
 }
 
 export interface IGetByFileIdResponse {
@@ -17,6 +18,7 @@ export interface IGetByFileIdResponse {
   status: string;
   createdAt: string;
   updatedAt: string;
+  policyName: string;
 }
 
 export interface IEventResult {
@@ -27,6 +29,7 @@ export interface IEventResult {
   event_status: string;
   event_createdAt: string;
   event_updatedAt: string;
+  event_policyName: string;
 }
 export interface IInsertResult {
   raw: [{ id: string }];

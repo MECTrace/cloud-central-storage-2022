@@ -37,6 +37,10 @@ export class Event {
   status: string;
 
   @ApiProperty()
+  @Column({ default: () => `''` })
+  policyName: string;
+
+  @ApiProperty()
   @CreateDateColumn({
     type: 'timestamptz',
     default: () => 'now()',

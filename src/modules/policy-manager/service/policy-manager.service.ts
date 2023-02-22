@@ -6,7 +6,7 @@ import { Node } from 'src/modules/node/entity/node.entity';
 import { Policy } from 'src/modules/policy/entity/policy.entity';
 import { UpdatePolicyNodeDto } from '../dto/update-policy-node.dto';
 import { PolicyService } from 'src/modules/policy/service/policy.service';
-import { ResSinglePolicy, ResPolices } from '../interfaces';
+import { ResSinglePolicy, ResPolices, ResPoliceByNodeId } from '../interfaces';
 
 @Injectable()
 export class PolicyManagerService {
@@ -61,7 +61,7 @@ export class PolicyManagerService {
         '"policy"."numberResendNode" as "numberResendNode"',
         '"policy"."activated" as "activated"',
       ])
-      .where('policy_manager.nodeId = :nodeId', { nodeId: nodeId})
-      .execute() as Promise<ResPolices[]>;
+      .where('policy_manager.nodeId = :nodeId', { nodeId: nodeId })
+      .execute() as Promise<ResPoliceByNodeId[]>;
   }
 }

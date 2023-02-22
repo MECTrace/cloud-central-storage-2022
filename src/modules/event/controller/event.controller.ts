@@ -19,7 +19,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { HttpService } from '@nestjs/axios';
-import { Response } from 'express';
 import { SocketEvents, SocketStatus, STATUS, SWAGGER_API } from 'src/constants';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { FileService } from '../../file/service/file.service';
@@ -27,6 +26,7 @@ import { FileUploadDto } from '../dto/fileUpload.dto';
 import { FileUploadFromNodeDto } from '../dto/fileUploadFromNode.dto';
 import { EventGateway } from '../event.gateway';
 import { IEventResult, IGetBySendNodeId, IInsertResult } from '../interfaces';
+import { ResPoliceByNodeId } from 'src/modules/policy-manager/interfaces';
 import { EventService } from '../service/event.service';
 import { PaginationParams } from '../../../util/paginationParams';
 import { summaryDto } from '../dto/summary.dto';
@@ -88,25 +88,23 @@ export class EventController {
     @Body() post: { sendNode: string },
   ) {
     // find limit to accept send file
-    // policy of current node
-    const policy = await this.policyManagerService.getPolicyByNodeId(
-      process.env.NODE_ID,
-    );
-
+    const policy: Array<ResPoliceByNodeId> =
+      await this.policyManagerService.getPolicyByNodeId(process.env.NODE_ID);
+    console.log(policy);
     await this.nodeService.updateStatusAllNodes();
 
-    const nodeName = policy[0]['nodeName'];
-    const cpuOverPercent = policy[0]['cpuOverPercent'];
-    const cpuLessThanPercent = policy[0]['cpuLessThanPercent'];
-    const numberResendNode = policy[0]['numberResendNode'];
-
-    // util func to set timeout
-    async function timeout(ms: number) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
+    const nodeName = policy[0].nodeName;
+    const cpuOverPercent = policy[0].cpuOverPercent;
+    const cpuLessThanPercent = policy[0].cpuLessThanPercent;
+    const numberResendNode = policy[0].numberResendNode;
+    const policyName = policy[0].policyName;
 
     // send file
-    const postBody = { sendNode: post.sendNode, cpu_limit: cpuOverPercent};
+    const postBody = {
+      sendNode: post.sendNode,
+      cpu_limit: cpuOverPercent,
+      policyName: policyName,
+    };
     const { status, eventId } = await this.eventService.uploadFromNode(
       file,
       postBody,
@@ -144,14 +142,14 @@ export class EventController {
     @Body() post: { sendNode: string },
   ) {
     // find limit to accept send file
-    const policy = await this.policyManagerService.getPolicyByNodeId(
-      process.env.NODE_ID,
-    );
+    const policy: Array<ResPoliceByNodeId> =
+      await this.policyManagerService.getPolicyByNodeId(process.env.NODE_ID);
 
     // send file
     const postBody = {
       sendNode: post.sendNode,
       cpu_limit: policy[0].cpuOverPercent,
+      policyName: policy[0].policyName,
     };
     return this.eventService.uploadFromNode(file, postBody);
   }
@@ -178,5 +176,17 @@ export class EventController {
     @Query() { page }: PaginationParams,
   ) {
     return this.eventService.getBySendNodeId(params.sendNodeId, page);
+  }
+
+  @Get('getNumberOfFilesUpload/:sendNodeId/:receiveNodeId')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get succeeded',
+  })
+  getNumberOfFilesUpload(
+    @Param('sendNodeId') sendNodeId: string,
+    @Param('receiveNodeId') receiveNodeId: string,
+  ) {
+    return this.eventService.getNumberOfFilesUpload(sendNodeId, receiveNodeId);
   }
 }

@@ -24,3 +24,14 @@ export interface ResPolices {
   numberResendNode: number;
   activated: boolean;
 }
+
+export interface ResPoliceByNodeId {
+  nodeId: string;
+  nodeName: string;
+  policyId: string;
+  policyName: string;
+  cpuOverPercent: number;
+  cpuLessThanPercent: number;
+  numberResendNode: number;
+  activated: boolean;
+}
