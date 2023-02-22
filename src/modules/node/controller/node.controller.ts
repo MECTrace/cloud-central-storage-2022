@@ -1,6 +1,13 @@
-import { Controller, Get, Put, Patch, Param, Body } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Patch, Param, Body } from '@nestjs/common';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiBody,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { ListNodeDto } from '../dto/list-node.dto';
+import { UpdateNodeDto } from '../dto/update-node-dto';
 import { NodeService } from '../service/node.service';
 
 @ApiTags('Cloud Server API')
@@ -46,5 +53,29 @@ export class NodeController {
     @Param('cpuLimit') cpuLimit: number,
   ) {
     return this.nodeService.getAvailableNode(currentNode, cpuLimit);
+  }
+
+  @Get('status')
+  @ApiOperation({
+    description: `Get All Status of Server information, include: Cloud Central &  Edge Node`,
+  })
+  getStatus() {
+    return this.nodeService.updateStatusAllNodes();
+  }
+
+  @Patch(':id')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: UpdateNodeDto,
+  })
+  @ApiOperation({
+    description: `Update node`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Update successfully',
+  })
+  updateNode(@Param('id') id: string, @Body() nodeData: UpdateNodeDto) {
+    return this.nodeService.updateNode(id, nodeData);
   }
 }

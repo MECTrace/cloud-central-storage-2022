@@ -93,6 +93,8 @@ export class EventController {
       process.env.NODE_ID,
     );
 
+    await this.nodeService.updateStatusAllNodes();
+
     const nodeName = policy[0]['nodeName'];
     const cpuOverPercent = policy[0]['cpuOverPercent'];
     const cpuLessThanPercent = policy[0]['cpuLessThanPercent'];

@@ -1,6 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import { BlobServiceClient, BlockBlobClient } from '@azure/storage-blob';
-import { Injectable, UploadedFile, Body, Res } from '@nestjs/common';
+import { Injectable, UploadedFile, Body } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { File } from '../../file/entity/file.entity';
@@ -11,8 +11,7 @@ import { IEventResult, IInsertResult } from '../interfaces';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { FileService } from 'src/modules/file/service/file.service';
 import { EventGateway } from '../event.gateway';
-import { SocketEvents, SocketStatus, STATUS, SWAGGER_API, ROOT_CA } from 'src/constants';
-import { EventController } from '../controller/event.controller';
+import { SocketEvents, SocketStatus, STATUS, ROOT_CA } from 'src/constants';
 import * as FormData from 'form-data';
 import { lastValueFrom } from 'rxjs';
 import * as fs from 'fs';
@@ -65,7 +64,7 @@ export class EventService {
 
   async uploadFromNode(
     @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string, cpu_limit: number },
+    @Body() post: { sendNode: string; cpu_limit: number },
   ) {
     const receiveNodeId = process.env.NODE_ID;
     const sendNode = post.sendNode;
@@ -111,7 +110,7 @@ export class EventService {
 
     try {
       const infoCurrentNode = await this.nodeService.getCPUCurrentNode();
-      const cpu = infoCurrentNode.cpuUsage as number;
+      const cpu = infoCurrentNode.cpuUsage;
 
       if (cpu < cpu_limit) {
         // accept to send file
@@ -200,8 +199,8 @@ export class EventService {
     },
   ) {
     let count = 0;
+
     for (const node of post.receiveNode) {
-      console.log(count, post.numberResendNode);
       if (count >= post.numberResendNode) {
         break;
       }
