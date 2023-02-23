@@ -317,6 +317,7 @@ export class EventService {
         '"event"."status"',
         '"event"."createdAt"',
         '"file"."fileType"',
+        '"event"."policyName"',
       ])
       .where({
         receiveNodeId: sendNodeId,
