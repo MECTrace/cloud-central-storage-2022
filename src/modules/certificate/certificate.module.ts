@@ -11,6 +11,8 @@ import { NodeService } from '../node/service/node.service';
 import { CertificateController } from './controller/certificate.controller';
 import { Certificate } from './entity/certificate.entity';
 import { CertificateService } from './service/certificate.service';
+import { HistoricalEvent } from '../historical-event/entity/historical-event.entity';
+import { HistoricalEventService } from '../historical-event/service/historical-event.service';
 
 @Module({
   imports: [
@@ -18,11 +20,13 @@ import { CertificateService } from './service/certificate.service';
     TypeOrmModule.forFeature([Event]),
     TypeOrmModule.forFeature([Node]),
     TypeOrmModule.forFeature([File]),
+    TypeOrmModule.forFeature([HistoricalEvent]),
     HttpModule,
   ],
   controllers: [CertificateController],
   providers: [
     CertificateService,
+    HistoricalEventService,
     EventService,
     NodeService,
     FileService,

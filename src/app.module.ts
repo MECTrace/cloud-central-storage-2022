@@ -9,6 +9,7 @@ import { NodeModule } from './modules/node/node.module';
 import { CertificateModule } from './modules/certificate/certificate.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { PolicyManagerModule } from './modules/policy-manager/policy-manager.module';
+import { HistoricalEventModule } from './modules/historical-event/historical-event.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PolicyManagerModule } from './modules/policy-manager/policy-manager.mod
     }),
     ScheduleModule.forRoot(),
     NodeModule,
+    HistoricalEventModule,
     EventModule,
     CertificateModule,
     PolicyModule,

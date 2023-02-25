@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
+import { GlobalExceptionFilter } from './all-exceptions.filter';
 import { AppModule } from './app.module';
 import {
   CLOUD_CERT,
@@ -60,7 +61,7 @@ async function bootstrap() {
       whitelist: true,
     }),
   );
-
+  app.useGlobalFilters(new GlobalExceptionFilter());
   const options = new DocumentBuilder()
     .setTitle('Penta Security')
     .setDescription('Penta Security Swagger API Document')
