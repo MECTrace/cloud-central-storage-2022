@@ -14,6 +14,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOkResponse,
+  ApiOperation,
   ApiParam,
   ApiQuery,
   ApiTags,
@@ -35,7 +36,7 @@ import * as FormData from 'form-data';
 import { lastValueFrom } from 'rxjs';
 import { diskStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
-
+import { MessageEvent } from '../dto/messageEvent.dto';
 @ApiTags('Upload file API')
 @Controller('event')
 export class EventController {
@@ -188,5 +189,134 @@ export class EventController {
     @Param('receiveNodeId') receiveNodeId: string,
   ) {
     return this.eventService.getNumberOfFilesUpload(sendNodeId, receiveNodeId);
+  }
+
+  @Post('sendData')
+  @UseInterceptors(FileInterceptor('fileUpload'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    type: MessageEvent,
+  })
+  async sendData(
+    @UploadedFile() fileUpload: Express.Multer.File,
+    @Body() post: { receiveNode: string },
+  ) {
+    // to simulate send message
+    // find limit to accept send file
+    const policy: Array<ResPoliceByNodeId> =
+      await this.policyManagerService.getPolicyByNodeId(post.receiveNode);
+    const policyName = policy[0].policyName;
+    const cpuLimit = policy[0].cpuOverPercent;
+    const postBody = {
+      receiveNode: post.receiveNode,
+      cpuLimit: cpuLimit,
+      policyName: policyName,
+    };
+
+    // send data
+    const { status, eventId } = await this.eventService.sendData(
+      fileUpload,
+      postBody,
+    );
+
+    // if send fail, we redirect to send others
+    // if (!status) {
+    //   const availableNode = await this.nodeService.getAvailableNode(
+    //     post.receiveNode,
+    //     cpuLessThanPercent,
+    //   );
+    //   const receiveNode = availableNode.availableNode as string;
+
+    //   await this.eventService.reSend(file, {
+    //     sendNode: nodeName,
+    //     receiveNode: receiveNode,
+    //     numberResendNode: numberResendNode,
+    //   });
+    // }
+    return {
+      status: status,
+      eventId: eventId,
+    };
+
+    // find limit to accept send file
+
+    // const nodeName = policy[0].nodeName;
+    // const cpuOverPercent = policy[0].cpuOverPercent;
+    // const cpuLessThanPercent = policy[0].cpuLessThanPercent;
+    // const numberResendNode = policy[0].numberResendNode;
+    // const policyName = policy[0].policyName;
+
+    // // send file
+    // const postBody = {
+    //   sendNode: post.sendNode,
+    //   cpu_limit: cpuOverPercent,
+    //   policyName: policyName,
+    // };
+    // const { status, eventId } = await this.eventService.uploadFromNode(
+    //   file,
+    //   postBody,
+    // );
+
+    // // if send fail, we redirect to send others
+    // if (!status) {
+    //   // await timeout(3000);
+    //   const availableNode = await this.nodeService.getAvailableNode(
+    //     process.env.NODE_ID,
+    //     cpuLessThanPercent,
+    //   );
+    //   const receiveNode = availableNode.availableNode as string;
+
+    //   await this.eventService.reSend(file, {
+    //     sendNode: nodeName,
+    //     receiveNode: receiveNode,
+    //     numberResendNode: numberResendNode,
+    //   });
+    // }
+    // return {
+    //   status: status,
+    //   eventId: eventId,
+    // };
+  }
+
+  @Get('getNumberOfFilesByNodeId/:nodeId/:period')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get succeeded',
+  })
+  getNumberOfFilesByNodeId(
+    @Param('nodeId') nodeId: string,
+    @Param('period') period: string,
+  ) {
+    return this.eventService.getNumberOfFilesByNodeId(nodeId, period);
+  }
+
+  @Get('getNumberOfFilesOfAllNode/:period')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get succeeded',
+  })
+  getNumberOfFilesOfAllNode(@Param('period') period: string) {
+    return this.eventService.getNumberOfFilesOfAllNode(period);
+  }
+
+  @Get('getNumberOfFilesTimeSeries/:nodeId/:numberOfDays')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Number of events by day',
+  })
+  getNumberOfFilesTimeSeries(
+    @Param('nodeId') nodeId: string,
+    @Param('numberOfDays') numberOfDays: string,
+  ) {
+    return this.eventService.getNumberOfFilesTimeSeries(nodeId, numberOfDays);
+  }
+
+  @Get('getNumberOfEachKindOfFile/:nodeId')
+  @ApiOkResponse({
+    status: 200,
+    description: 'Number of each kind of file',
+  })
+  getNumberOfEachKind(@Param('nodeId') nodeId: string) {
+    return this.eventService.getNumberOfEachKindOfFile(nodeId);
   }
 }

@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { Repository } from 'typeorm';
 import { Node } from '../entity/node.entity';
 import { shuffleArray } from 'src/util/shuffleArray';
-import { IResAccessToken, IResCPU, IResStatusVM } from '../interfaces';
+import { IResAccessToken, IResCPU, IResStatusVM, IResRAM } from '../interfaces';
 import { UpdateNodeDto } from '../dto/update-node-dto';
 
 @Injectable()
@@ -253,5 +253,48 @@ export class NodeService {
       .catch((err) => console.log(err));
 
     return '[Done] Update Successfully';
+  }
+
+  async getRAM(vmName: string) {
+    const access_token = await this.getAccessToken();
+
+    const headersRequest = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token}`,
+    };
+
+    // Get VM details to retrieve total memory
+    const vmUrl = `https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${vmName}?api-version=2021-03-01`;
+    const vmRes = await firstValueFrom(
+      this.httpService.get(vmUrl, { headers: headersRequest }),
+    );
+    const hardwareProfile = vmRes.data.properties.hardwareProfile;
+    const totalMemoryInBytes = hardwareProfile.memorySizeInMB * 1024 * 1024;
+
+    const now = new Date();
+    const beginTime = new Date(
+      new Date().setTime(now.getTime() - 10 * 60 * 1000),
+    ).toISOString();
+    const endTime = new Date(now).toISOString();
+
+    const url =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Percentage%20CPU&` +
+      `timespan=${beginTime}/${endTime}`;
+
+    const res: IResRAM = await firstValueFrom(
+      this.httpService.get(url, { headers: headersRequest }),
+    );
+
+    const timeseries_data = res.data.value[0].timeseries[0].data;
+
+    for (let i = timeseries_data.length - 1; i >= 0; i--) {
+      if (Object.keys(timeseries_data[i]).length == 2) {
+        const availableMemory = timeseries_data[i].average;
+        const percentAvailable = (availableMemory / totalMemoryInBytes) * 100;
+        return percentAvailable.toFixed(2);
+      }
+    }
   }
 }

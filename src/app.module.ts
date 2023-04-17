@@ -10,7 +10,7 @@ import { CertificateModule } from './modules/certificate/certificate.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { PolicyManagerModule } from './modules/policy-manager/policy-manager.module';
 import { HistoricalEventModule } from './modules/historical-event/historical-event.module';
-
+import { EventGateway } from './modules/event/event.gateway';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,6 +28,6 @@ import { HistoricalEventModule } from './modules/historical-event/historical-eve
     PolicyModule,
     PolicyManagerModule,
   ],
-  providers: [AppGateway],
+  providers: [AppGateway, EventGateway],
 })
 export class AppModule {}

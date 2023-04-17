@@ -13,7 +13,10 @@ import { Certificate } from './entity/certificate.entity';
 import { CertificateService } from './service/certificate.service';
 import { HistoricalEvent } from '../historical-event/entity/historical-event.entity';
 import { HistoricalEventService } from '../historical-event/service/historical-event.service';
-
+import { PolicyManagerService } from '../policy-manager/service/policy-manager.service';
+import { PolicyManager } from '../policy-manager/entity/policy-manager.entity';
+import { PolicyService } from '../policy/service/policy.service';
+import { Policy } from '../policy/entity/policy.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Certificate]),
@@ -21,6 +24,8 @@ import { HistoricalEventService } from '../historical-event/service/historical-e
     TypeOrmModule.forFeature([Node]),
     TypeOrmModule.forFeature([File]),
     TypeOrmModule.forFeature([HistoricalEvent]),
+    TypeOrmModule.forFeature([PolicyManager]),
+    TypeOrmModule.forFeature([Policy]),
     HttpModule,
   ],
   controllers: [CertificateController],
@@ -31,6 +36,8 @@ import { HistoricalEventService } from '../historical-event/service/historical-e
     NodeService,
     FileService,
     EventGateway,
+    PolicyService,
+    PolicyManagerService,
   ],
   exports: [CertificateService],
 })

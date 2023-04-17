@@ -25,3 +25,16 @@ export interface IGetStatusVM {
 export interface IResStatusVM {
   data: IGetStatusVM;
 }
+
+export interface IResRAM {
+  data: {
+    value: {
+      timeseries: {
+        data: {
+          average: number;
+          timeGrain: string;
+        }[];
+      }[];
+    }[];
+  };
+}
