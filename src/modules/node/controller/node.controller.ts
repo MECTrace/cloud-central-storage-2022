@@ -76,6 +76,18 @@ export class NodeController {
     return this.nodeService.getTotalNetworkByNodeId(nodeId);
   }
 
+  @Get('getDiskOperator/:nodeId')
+  @ApiOperation({
+    description: `Get Disk Operator By Node Id`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get disk operator successfully',
+  })
+  getDiskOperator(@Param('nodeId') nodeId: string) {
+    return this.nodeService.getDiskOperatorByNodeId(nodeId);
+  }
+
   @Get('getAvailableNode/:currentNode/:cpuLimit')
   @ApiOperation({
     description: `Get Available Node`,

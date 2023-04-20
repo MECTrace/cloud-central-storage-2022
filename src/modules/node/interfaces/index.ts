@@ -26,13 +26,13 @@ export interface IResStatusVM {
   data: IGetStatusVM;
 }
 
-export interface IResRAM {
+export interface IResAzureMetricAverage {
   data: {
     value: {
       timeseries: {
         data: {
           average: number;
-          timeGrain: string;
+          timeStamp: string;
         }[];
       }[];
     }[];

@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { Repository, Timestamp } from 'typeorm';
 import { Node } from '../entity/node.entity';
 import { shuffleArray } from 'src/util/shuffleArray';
-import { IResAccessToken, IResCPU, IResStatusVM, IResRAM } from '../interfaces';
+import { IResAccessToken, IResCPU, IResStatusVM, IResAzureMetricAverage } from '../interfaces';
 import { UpdateNodeDto } from '../dto/update-node-dto';
 
 @Injectable()
@@ -168,23 +168,16 @@ export class NodeService {
       `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
       `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
       `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Available%20Memory%20Bytes&` +
-      `timespan=${beginTime}/${endTime}`;
+      `timespan=${beginTime}/${endTime}&aggregation=average`;
 
-    // const vmSizeList =
-    //   `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
-    //   `providers/Microsoft.Compute/locations/-e/vmSizes?api-version=2022-11-01`;
-
-    const res: IResCPU = await firstValueFrom(
+    const res: IResAzureMetricAverage = await firstValueFrom(
       this.httpService.get(availableMemoryURL, { headers: headersRequest }),
     );
 
-    // const vmSize = await firstValueFrom(
-    //   this.httpService.get(vmSizeList, { headers: headersRequest }),
-    // );
     const availableMemoryData = res.data.value[0].timeseries[0].data;
     for (let i = availableMemoryData.length - 1; i >= 0; i--) {
       if (Object.keys(availableMemoryData[i]).length == 2) {
-        return availableMemoryData[i];
+        return availableMemoryData[i].average;
       }
     }
   }
@@ -207,33 +200,98 @@ export class NodeService {
       `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
       `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
       `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Network%20In%20Total&` +
-      `timespan=${beginTime}/${endTime}`;
+      `timespan=${beginTime}/${endTime}&aggregation=average`;
 
-    const resTotalNetWorkIn = await firstValueFrom(
+    const resTotalNetWorkIn: IResAzureMetricAverage = await firstValueFrom(
       this.httpService.get(totalNetWorkInURL, { headers: headersRequest }),
     );
 
     const totalNetWorkInData =
-      resTotalNetWorkIn.data.value[0].timeseries[0].data;
+      resTotalNetWorkIn.data.value[0].timeseries[0].data.filter(
+        (item) => Object.keys(item).length == 2,
+      );
 
-    totalNetWorkInData.forEach((item) => (item.total = item.total / 1024));
+    totalNetWorkInData.forEach((item) => (item.average = item.average / 1024));
 
     const totalNetWorkOutURL =
       `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
       `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
       `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Network%20Out%20Total&` +
-      `timespan=${beginTime}/${endTime}`;
+      `timespan=${beginTime}/${endTime}&aggregation=average`;
 
-    const resTotalNetWorkOut = await firstValueFrom(
+    const resTotalNetWorkOut: IResAzureMetricAverage = await firstValueFrom(
       this.httpService.get(totalNetWorkOutURL, { headers: headersRequest }),
     );
 
     const totalNetWorkOutData =
-      resTotalNetWorkOut.data.value[0].timeseries[0].data;
-    totalNetWorkOutData.forEach((item) => (item.total = item.total / 1024));
+      resTotalNetWorkOut.data.value[0].timeseries[0].data.filter(
+        (item) => Object.keys(item).length == 2,
+      );
+
+    totalNetWorkOutData.forEach(
+      (item) => (item.average = item.average / 1024 ** 2),
+    );
+
     return {
       totalNetworkIn: totalNetWorkInData,
       totalNetworkOut: totalNetWorkOutData,
+    };
+  }
+
+  async getDiskOperator(vmName: string) {
+    const access_token = await this.getAccessToken();
+
+    const headersRequest = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token}`,
+    };
+
+    const now = new Date();
+    const beginTime = new Date(
+      new Date().setTime(now.getTime() - 60 * 60 * 1000),
+    ).toISOString();
+    const endTime = new Date(now).toISOString();
+
+    const diskReadURL =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Disk%20Read%20Bytes&` +
+      `timespan=${beginTime}/${endTime}&aggregation=average`;
+
+    const resDiskRead: IResAzureMetricAverage = await firstValueFrom(
+      this.httpService.get(diskReadURL, { headers: headersRequest }),
+    );
+
+    const resDiskReadData = resDiskRead.data.value[0].timeseries[0].data.filter(
+      (item) => Object.keys(item).length == 2,
+    );
+
+    resDiskReadData.forEach(
+      (item) => (item.average = item.average / 1024 ** 2),
+    );
+
+    const diskWriteURL =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Disk%20Write%20Bytes&` +
+      `timespan=${beginTime}/${endTime}&aggregation=average`;
+
+    const resDiskWrite: IResAzureMetricAverage = await firstValueFrom(
+      this.httpService.get(diskWriteURL, { headers: headersRequest }),
+    );
+
+    const resDiskWriteData =
+      resDiskWrite.data.value[0].timeseries[0].data.filter(
+        (item) => Object.keys(item).length == 2,
+      );
+
+    resDiskWriteData.forEach(
+      (item) => (item.average = item.average / 1024 ** 2),
+    );
+
+    return {
+      diskReadOperator: resDiskReadData,
+      diskWriteOperator: resDiskWriteData,
     };
   }
 
@@ -264,8 +322,8 @@ export class NodeService {
     return {
       vmName: vmName,
       ramUsage:
-        100 - (availableMemory.average * 100) / (totalMemory * 1024 ** 3),
-      updateAt: availableMemory.timeStamp,
+        100 - Math.round((availableMemory * 100) / (totalMemory * 1024 ** 3)),
+      updateAt: new Date(),
     };
   }
 
@@ -276,6 +334,17 @@ export class NodeService {
       vmName: vmName,
       totalNetWorkIn: totalNetWork.totalNetworkIn,
       totalNetWorkOut: totalNetWork.totalNetworkOut,
+      updateAt: new Date(),
+    };
+  }
+
+  async getDiskOperatorByNodeId(nodeId: string) {
+    const vmName = (await this.getNodeById(nodeId))[0].vmName;
+    const diskOperator = await this.getDiskOperator(vmName);
+    return {
+      vmName: vmName,
+      diskReadOperator: diskOperator.diskReadOperator,
+      diskWriteOperator: diskOperator.diskWriteOperator,
       updateAt: new Date(),
     };
   }
@@ -373,7 +442,7 @@ export class NodeService {
     const access_token = await this.getAccessToken();
     for (const vm of vm_list) {
       promises.push(
-        this.updateStatus(vm, access_token).catch((err) => console.log(err))
+        this.updateStatus(vm, access_token).catch((err) => console.log(err)),
       );
     }
 
