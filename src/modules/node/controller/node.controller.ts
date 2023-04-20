@@ -40,6 +40,42 @@ export class NodeController {
     return this.nodeService.getCPUCurrentNode();
   }
 
+  @Get('getCPUByNodeId/:nodeId')
+  @ApiOperation({
+    description: `Get CPU By Node Id`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get CPU successfully',
+  })
+  getCPUByNodeId(@Param('nodeId') nodeId: string) {
+    return this.nodeService.getCPUByNodeId(nodeId);
+  }
+
+  @Get('getRAMByNodeId/:nodeId')
+  @ApiOperation({
+    description: `Get RAM By Node Id`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get RAM successfully',
+  })
+  getRAMByNodeId(@Param('nodeId') nodeId: string) {
+    return this.nodeService.getRAMByNodeId(nodeId);
+  }
+
+  @Get('getTotalNetwork/:nodeId')
+  @ApiOperation({
+    description: `Get RAM By Node Id`,
+  })
+  @ApiOkResponse({
+    status: 200,
+    description: 'Get RAM successfully',
+  })
+  getTotalNetwork(@Param('nodeId') nodeId: string) {
+    return this.nodeService.getTotalNetworkByNodeId(nodeId);
+  }
+
   @Get('getAvailableNode/:currentNode/:cpuLimit')
   @ApiOperation({
     description: `Get Available Node`,

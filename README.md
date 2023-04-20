@@ -101,4 +101,4 @@ openssl x509 -req -days 365 -sha256 -extfile cert.cnf -set_serial 01 \
 ### Verify with root CA 
 ```bash
 openssl verify -CAfile ca-cert.pem cloud-cert.pem ca-cert.pem
-``` 
+```

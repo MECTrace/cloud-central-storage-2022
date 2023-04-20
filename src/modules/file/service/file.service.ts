@@ -59,13 +59,4 @@ export class FileService {
       })
       .execute();
   }
-
-  async getNumberOfEachKindOfFile() {
-    return this.fileRepository
-      .createQueryBuilder('file')
-      .select('file.fileType', 'fileType')
-      .addSelect('count(id)', 'total')
-      .addGroupBy('file.fileType')
-      .getRawMany<{ fileType: string; total: number }>();
-  }
 }

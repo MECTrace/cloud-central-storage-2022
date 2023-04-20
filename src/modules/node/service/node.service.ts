@@ -2,7 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
-import { Repository } from 'typeorm';
+import { Repository, Timestamp } from 'typeorm';
 import { Node } from '../entity/node.entity';
 import { shuffleArray } from 'src/util/shuffleArray';
 import { IResAccessToken, IResCPU, IResStatusVM, IResRAM } from '../interfaces';
@@ -64,14 +64,23 @@ export class NodeService {
    * @param {string} nodeId - string - The id of the node you want to get.
    * @returns An array of objects with a name property.
    */
-  async getNodeById(nodeId: string): Promise<{ name: string }[]> {
+  async getNodeById(nodeId: string) {
     return this.nodeRepository
-      .createQueryBuilder()
-      .select(['name'])
+      .createQueryBuilder('node')
+      .select([
+        '"node"."id"',
+        '"node"."name"',
+        '"node"."typeNode"',
+        '"node"."vmName"',
+        '"node"."status"',
+        '"node"."nodeURL"',
+        '"node"."createdAt"',
+        '"node"."updatedAt"',
+      ])
       .where({
         id: nodeId,
       })
-      .execute() as Promise<{ name: string }[]>;
+      .execute() as Promise<Node[]>;
   }
 
   async updateNode(id: string, data: UpdateNodeDto) {
@@ -141,6 +150,93 @@ export class NodeService {
     }
   }
 
+  async getAvailableMemory(vmName: string) {
+    const access_token = await this.getAccessToken();
+
+    const headersRequest = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token}`,
+    };
+
+    const now = new Date();
+    const beginTime = new Date(
+      new Date().setTime(now.getTime() - 10 * 60 * 1000),
+    ).toISOString();
+    const endTime = new Date(now).toISOString();
+
+    const availableMemoryURL =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Available%20Memory%20Bytes&` +
+      `timespan=${beginTime}/${endTime}`;
+
+    // const vmSizeList =
+    //   `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+    //   `providers/Microsoft.Compute/locations/-e/vmSizes?api-version=2022-11-01`;
+
+    const res: IResCPU = await firstValueFrom(
+      this.httpService.get(availableMemoryURL, { headers: headersRequest }),
+    );
+
+    // const vmSize = await firstValueFrom(
+    //   this.httpService.get(vmSizeList, { headers: headersRequest }),
+    // );
+    const availableMemoryData = res.data.value[0].timeseries[0].data;
+    for (let i = availableMemoryData.length - 1; i >= 0; i--) {
+      if (Object.keys(availableMemoryData[i]).length == 2) {
+        return availableMemoryData[i];
+      }
+    }
+  }
+
+  async getTotalNetwork(vmName: string) {
+    const access_token = await this.getAccessToken();
+
+    const headersRequest = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token}`,
+    };
+
+    const now = new Date();
+    const beginTime = new Date(
+      new Date().setTime(now.getTime() - 60 * 60 * 1000),
+    ).toISOString();
+    const endTime = new Date(now).toISOString();
+
+    const totalNetWorkInURL =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Network%20In%20Total&` +
+      `timespan=${beginTime}/${endTime}`;
+
+    const resTotalNetWorkIn = await firstValueFrom(
+      this.httpService.get(totalNetWorkInURL, { headers: headersRequest }),
+    );
+
+    const totalNetWorkInData =
+      resTotalNetWorkIn.data.value[0].timeseries[0].data;
+
+    totalNetWorkInData.forEach((item) => (item.total = item.total / 1024));
+
+    const totalNetWorkOutURL =
+      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
+      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
+      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Network%20Out%20Total&` +
+      `timespan=${beginTime}/${endTime}`;
+
+    const resTotalNetWorkOut = await firstValueFrom(
+      this.httpService.get(totalNetWorkOutURL, { headers: headersRequest }),
+    );
+
+    const totalNetWorkOutData =
+      resTotalNetWorkOut.data.value[0].timeseries[0].data;
+    totalNetWorkOutData.forEach((item) => (item.total = item.total / 1024));
+    return {
+      totalNetworkIn: totalNetWorkInData,
+      totalNetworkOut: totalNetWorkOutData,
+    };
+  }
+
   // get CPU current node
   async getCPUCurrentNode() {
     const cpu_usage = await this.getCPU(process.env.VM_NAME);
@@ -148,6 +244,39 @@ export class NodeService {
       vmName: process.env.VM_NAME,
       cpuUsage: cpu_usage.average,
       updateAt: cpu_usage.timeStamp,
+    };
+  }
+
+  async getCPUByNodeId(nodeId: string) {
+    const vmName = (await this.getNodeById(nodeId))[0].vmName;
+    const cpuUsage = await this.getCPU(vmName);
+    return {
+      vmName: vmName,
+      cpuUsage: cpuUsage.average,
+      updateAt: cpuUsage.timeStamp,
+    };
+  }
+
+  async getRAMByNodeId(nodeId: string) {
+    const vmName = (await this.getNodeById(nodeId))[0].vmName;
+    const availableMemory = await this.getAvailableMemory(vmName);
+    const totalMemory = vmName == 'edgeCloudCentral' ? 4 : 2;
+    return {
+      vmName: vmName,
+      ramUsage:
+        100 - (availableMemory.average * 100) / (totalMemory * 1024 ** 3),
+      updateAt: availableMemory.timeStamp,
+    };
+  }
+
+  async getTotalNetworkByNodeId(nodeId: string) {
+    const vmName = (await this.getNodeById(nodeId))[0].vmName;
+    const totalNetWork = await this.getTotalNetwork(vmName);
+    return {
+      vmName: vmName,
+      totalNetWorkIn: totalNetWork.totalNetworkIn,
+      totalNetWorkOut: totalNetWork.totalNetworkOut,
+      updateAt: new Date(),
     };
   }
 
@@ -253,48 +382,5 @@ export class NodeService {
       .catch((err) => console.log(err));
 
     return '[Done] Update Successfully';
-  }
-
-  async getRAM(vmName: string) {
-    const access_token = await this.getAccessToken();
-
-    const headersRequest = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${access_token}`,
-    };
-
-    // Get VM details to retrieve total memory
-    const vmUrl = `https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/${vmName}?api-version=2021-03-01`;
-    const vmRes = await firstValueFrom(
-      this.httpService.get(vmUrl, { headers: headersRequest }),
-    );
-    const hardwareProfile = vmRes.data.properties.hardwareProfile;
-    const totalMemoryInBytes = hardwareProfile.memorySizeInMB * 1024 * 1024;
-
-    const now = new Date();
-    const beginTime = new Date(
-      new Date().setTime(now.getTime() - 10 * 60 * 1000),
-    ).toISOString();
-    const endTime = new Date(now).toISOString();
-
-    const url =
-      `https://management.azure.com/subscriptions/${process.env.SUBSCRIPTION_ID}/` +
-      `resourceGroups/${process.env.RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/${vmName}/providers/` +
-      `microsoft.insights/metrics?api-version=2018-01-01&metricnames=Percentage%20CPU&` +
-      `timespan=${beginTime}/${endTime}`;
-
-    const res: IResRAM = await firstValueFrom(
-      this.httpService.get(url, { headers: headersRequest }),
-    );
-
-    const timeseries_data = res.data.value[0].timeseries[0].data;
-
-    for (let i = timeseries_data.length - 1; i >= 0; i--) {
-      if (Object.keys(timeseries_data[i]).length == 2) {
-        const availableMemory = timeseries_data[i].average;
-        const percentAvailable = (availableMemory / totalMemoryInBytes) * 100;
-        return percentAvailable.toFixed(2);
-      }
-    }
   }
 }

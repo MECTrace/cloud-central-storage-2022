@@ -707,6 +707,12 @@ export class EventService {
   }
 
   async getNumberOfEachKindOfFile(nodeId: string) {
-    return this.fileService.getNumberOfEachKindOfFile();
+    return this.eventRepository
+      .createQueryBuilder('event')
+      .select('file.fileType', 'fileType')
+      .addSelect('count(event.id)', 'total')
+      .innerJoin(File, 'file', 'event.fileId = file.id ')
+      .addGroupBy('file.fileType')
+      .getRawMany<{ fileType: string; total: number }>();
   }
 }
