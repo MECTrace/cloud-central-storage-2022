@@ -18,7 +18,7 @@ export const SocketStatus = {
   PENDING: 0,
 };
 
-export const CORS_ORIGIN = [process.env.FE_URL];
+export const CORS_ORIGIN = [process.env.FE_URL, 'http://localhost:3000'];
 
 export const WEB_SOCKET_GATEWAY = {
   origin: CORS_ORIGIN,

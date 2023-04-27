@@ -49,112 +49,6 @@ export class EventController {
     private httpService: HttpService,
   ) {}
 
-  @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('fileUpload', {
-      storage: diskStorage({
-        // Destination storage path details
-        destination: (req: any, file: any, cb: any) => {
-          const uploadPath = process.env.UPLOAD_LOCATION;
-          // Create folder if doesn't exist
-          if (!existsSync(uploadPath)) {
-            mkdirSync(uploadPath);
-          }
-          cb(null, uploadPath);
-        },
-        // File modification details
-        filename: (req: any, file: any, cb: any) => {
-          // Calling the callback passing the original name
-          cb(null, file.originalname);
-        },
-      }),
-    }),
-  )
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    type: FileUploadDto,
-  })
-  upload(@UploadedFile() file: Express.Multer.File) {
-    console.log(file);
-  }
-
-  @Post('uploadFromNode')
-  @UseInterceptors(FileInterceptor('fileUpload'))
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    type: FileUploadFromNodeDto,
-  })
-  async uploadFromNode(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string },
-  ) {
-    // find limit to accept send file
-    const policy: Array<ResPoliceByNodeId> =
-      await this.policyManagerService.getPolicyByNodeId(process.env.NODE_ID);
-    console.log(policy);
-    await this.nodeService.updateStatusAllNodes();
-
-    const nodeName = policy[0].nodeName;
-    const cpuOverPercent = policy[0].cpuOverPercent;
-    const cpuLessThanPercent = policy[0].cpuLessThanPercent;
-    const numberResendNode = policy[0].numberResendNode;
-    const policyName = policy[0].policyName;
-
-    // send file
-    const postBody = {
-      sendNode: post.sendNode,
-      cpu_limit: cpuOverPercent,
-      policyName: policyName,
-    };
-    const { status, eventId } = await this.eventService.uploadFromNode(
-      file,
-      postBody,
-    );
-
-    // if send fail, we redirect to send others
-    if (!status) {
-      // await timeout(3000);
-      const availableNode = await this.nodeService.getAvailableNode(
-        process.env.NODE_ID,
-        cpuLessThanPercent,
-      );
-      const receiveNode = availableNode.availableNode as string;
-
-      await this.eventService.reSend(file, {
-        sendNode: nodeName,
-        receiveNode: receiveNode,
-        numberResendNode: numberResendNode,
-      });
-    }
-    return {
-      status: status,
-      eventId: eventId,
-    };
-  }
-
-  @Post('resend')
-  @UseInterceptors(FileInterceptor('fileUpload'))
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    type: FileUploadFromNodeDto,
-  })
-  async reSend(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string },
-  ) {
-    // find limit to accept send file
-    const policy: Array<ResPoliceByNodeId> =
-      await this.policyManagerService.getPolicyByNodeId(process.env.NODE_ID);
-
-    // send file
-    const postBody = {
-      sendNode: post.sendNode,
-      cpu_limit: policy[0].cpuOverPercent,
-      policyName: policy[0].policyName,
-    };
-    return this.eventService.uploadFromNode(file, postBody);
-  }
-
   @Get('summary')
   @ApiOkResponse({
     status: 200,
@@ -182,7 +76,8 @@ export class EventController {
   @Get('getNumberOfFilesUpload/:sendNodeId/:receiveNodeId')
   @ApiOkResponse({
     status: 200,
-    description: 'Get succeeded',
+    description:
+      'Get number of file between sendNode and receiveNode succeeded',
   })
   getNumberOfFilesUpload(
     @Param('sendNodeId') sendNodeId: string,
@@ -201,81 +96,10 @@ export class EventController {
     @UploadedFile() fileUpload: Express.Multer.File,
     @Body() post: { receiveNode: string },
   ) {
-    // to simulate send message
-    // find limit to accept send file
-    const policy: Array<ResPoliceByNodeId> =
-      await this.policyManagerService.getPolicyByNodeId(post.receiveNode);
-    const policyName = policy[0].policyName;
-    const cpuLimit = policy[0].cpuOverPercent;
-    const postBody = {
-      receiveNode: post.receiveNode,
-      cpuLimit: cpuLimit,
-      policyName: policyName,
-    };
-
     // send data
-    const { status, eventId } = await this.eventService.sendData(
-      fileUpload,
-      postBody,
-    );
-
-    // if send fail, we redirect to send others
-    // if (!status) {
-    //   const availableNode = await this.nodeService.getAvailableNode(
-    //     post.receiveNode,
-    //     cpuLessThanPercent,
-    //   );
-    //   const receiveNode = availableNode.availableNode as string;
-
-    //   await this.eventService.reSend(file, {
-    //     sendNode: nodeName,
-    //     receiveNode: receiveNode,
-    //     numberResendNode: numberResendNode,
-    //   });
-    // }
-    return {
-      status: status,
-      eventId: eventId,
-    };
-
-    // find limit to accept send file
-
-    // const nodeName = policy[0].nodeName;
-    // const cpuOverPercent = policy[0].cpuOverPercent;
-    // const cpuLessThanPercent = policy[0].cpuLessThanPercent;
-    // const numberResendNode = policy[0].numberResendNode;
-    // const policyName = policy[0].policyName;
-
-    // // send file
-    // const postBody = {
-    //   sendNode: post.sendNode,
-    //   cpu_limit: cpuOverPercent,
-    //   policyName: policyName,
-    // };
-    // const { status, eventId } = await this.eventService.uploadFromNode(
-    //   file,
-    //   postBody,
-    // );
-
-    // // if send fail, we redirect to send others
-    // if (!status) {
-    //   // await timeout(3000);
-    //   const availableNode = await this.nodeService.getAvailableNode(
-    //     process.env.NODE_ID,
-    //     cpuLessThanPercent,
-    //   );
-    //   const receiveNode = availableNode.availableNode as string;
-
-    //   await this.eventService.reSend(file, {
-    //     sendNode: nodeName,
-    //     receiveNode: receiveNode,
-    //     numberResendNode: numberResendNode,
-    //   });
-    // }
-    // return {
-    //   status: status,
-    //   eventId: eventId,
-    // };
+    return this.eventService.sendData(fileUpload, {
+      receiveNode: post.receiveNode,
+    });
   }
 
   @Get('getNumberOfFilesByNodeId/:nodeId/:period')

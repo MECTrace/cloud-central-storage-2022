@@ -357,6 +357,7 @@ export class NodeService {
     // filter node that we need to get cpu
     const vmOfNodes: Array<{
       name: string;
+      nodeId: string;
       vmName: string;
       nodeURL: string;
     }> = [];
@@ -366,6 +367,7 @@ export class NodeService {
       .forEach((element) =>
         vmOfNodes.push({
           name: element.name,
+          nodeId: element.id,
           vmName: element.vmName,
           nodeURL: element.nodeURL,
         }),
@@ -381,6 +383,7 @@ export class NodeService {
         vmOfAvailableNodes.push({
           vmName: vm.vmName,
           name: vm.name,
+          nodeId: vm.nodeId,
           nodeURL: vm.nodeURL,
           cpuUsage: cpu.average,
           updateAt: cpu.timeStamp,

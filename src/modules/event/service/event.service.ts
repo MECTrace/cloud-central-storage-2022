@@ -68,219 +68,6 @@ export class EventService {
     }
   }
 
-  async uploadFromNode(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() post: { sendNode: string; cpu_limit: number; policyName: string },
-  ) {
-    const receiveNodeId = process.env.NODE_ID;
-    const sendNode = post.sendNode;
-    const cpu_limit = post.cpu_limit;
-    const policyName = post.policyName;
-    const nodeResult = await this.nodeService.findOne(sendNode);
-    const sendNodeId = nodeResult.id;
-    let fileId: string;
-    let isSuccess = false;
-
-    const optionEvent = <IGetBySendNodeId>{
-      sendNodeId,
-      receiveNodeId,
-      policyName,
-    };
-
-    const path =
-      `/${process.env.AZURE_STORAGE_CONTAINER}` +
-      `/${process.env.VM_NAME}/${file.originalname}`;
-
-    const findFileId: string = await this.fileService.findByPath(path);
-    if (!findFileId) {
-      const createdFile: IInsertResult = await this.fileService.create(
-        `${process.env.VM_NAME}`,
-        file,
-      );
-      fileId = createdFile.raw[0].id;
-    } else {
-      fileId = findFileId;
-    }
-
-    const createdEvent: IInsertResult = await this.create({
-      ...optionEvent,
-      status: STATUS.PENDING,
-      fileId: fileId,
-    });
-    const totalEvents = (
-      await this.getNumberOfFilesUpload(sendNodeId, receiveNodeId)
-    ).total;
-    const insertedEventId: string = createdEvent.raw[0].id;
-
-    this.eventGateway.server.emit(SocketEvents.CENTRAL_INIT, {
-      id: insertedEventId,
-      receiveNodeId,
-      sendNodeId,
-      status: SocketStatus.PENDING,
-    });
-
-    try {
-      const infoCurrentNode = await this.nodeService.getCPUCurrentNode();
-      const cpu = infoCurrentNode.cpuUsage;
-
-      if (cpu < cpu_limit) {
-        // accept to send file
-        const form = new FormData();
-        form.append('fileUpload', file.buffer, {
-          filename: file.originalname,
-        });
-
-        try {
-          const url = process.env.NODE_URL + '/api/event/upload';
-          await lastValueFrom(
-            this.httpService.post(url, form, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-              httpsAgent: new https.Agent({
-                rejectUnauthorized: false,
-              }),
-            }),
-          );
-          console.log('[Success] Send file successfully');
-        } catch {
-          // throw error
-          console.log('[Error] Cannot send file');
-          throw Error();
-        }
-
-        // upload to backup
-        await this.upload(`${process.env.VM_NAME}/`, file);
-
-        // update event and file table
-        await this.fileService.update(findFileId, path);
-        await this.update(insertedEventId, STATUS.SUCCESS);
-        isSuccess = true;
-        await this.historicalEventService.updateOne(
-          sendNodeId,
-          receiveNodeId,
-          insertedEventId,
-          totalEvents + 1,
-          SocketStatus.SUCCESS,
-        );
-        setTimeout(() => {
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-            id: insertedEventId,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.SUCCESS,
-          });
-        }, 2000);
-      } else {
-        // throw error
-        throw Error(insertedEventId);
-      }
-    } catch {
-      // Cant meet cpu condition
-      // upload to backup
-      await this.upload(`${process.env.VM_NAME}/`, file);
-
-      // update event and file table
-      await this.fileService.update(findFileId, path);
-      await this.update(insertedEventId, STATUS.FAIL);
-
-      await this.historicalEventService.updateOne(
-        sendNodeId,
-        receiveNodeId,
-        insertedEventId,
-        totalEvents + 1,
-        SocketStatus.FAIL,
-      );
-      setTimeout(() => {
-        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-          id: insertedEventId,
-          receiveNodeId,
-          sendNodeId,
-          status: SocketStatus.FAIL,
-        });
-      }, 2000);
-    } finally {
-      setTimeout(() => {
-        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-          id: insertedEventId,
-          receiveNodeId,
-          sendNodeId,
-          status: SocketStatus.DONE,
-        });
-      }, 4000);
-    }
-    return {
-      status: isSuccess,
-      eventId: insertedEventId,
-    };
-  }
-
-  async reSend(
-    @UploadedFile() file: Express.Multer.File,
-    @Body()
-    post: {
-      sendNode: string;
-      receiveNode: any;
-      numberResendNode: number;
-    },
-  ) {
-    let count = 0;
-
-    for (const node of post.receiveNode) {
-      if (count >= post.numberResendNode) {
-        break;
-      }
-
-      // begin to send file
-      const form = new FormData();
-      form.append('fileUpload', file.buffer, {
-        filename: file.originalname,
-      });
-      form.append('sendNode', post.sendNode);
-
-      try {
-        const url = node.nodeURL + '/api/event/resend';
-
-        const httpsAgent = new https.Agent({
-          ca: fs.readFileSync(ROOT_CA).toString(),
-        });
-
-        let isSuccess: any;
-        try {
-          const { data } = await lastValueFrom(
-            this.httpService.post(url, form, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-              httpsAgent: httpsAgent,
-            }),
-          );
-          isSuccess = data;
-        } catch (err) {
-          const { data } = await lastValueFrom(
-            this.httpService.post(url, form, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-              httpsAgent: new https.Agent({
-                rejectUnauthorized: false,
-              }),
-            }),
-          );
-          isSuccess = data;
-        }
-
-        if (!isSuccess.status) {
-          throw Error();
-        }
-        count += 1;
-      } catch {
-        // throw error
-        console.log('[Error] Cannot resend file');
-      }
-    }
-  }
-
   async forceUploadCertificates(buffer: Buffer, blobName: string) {
     try {
       const blobClient = this.getBlobClient(
@@ -448,40 +235,28 @@ export class EventService {
     return { total, numberOfFailed, numberOfSucceed };
   }
 
-  async sendData(
+  async createFilePath(
     @UploadedFile() file: Express.Multer.File,
-    @Body() post: { receiveNode: string; cpuLimit: number; policyName: string },
+    path: string,
   ) {
-    let isSuccess = false;
-    const sendNodeId = process.env.NODE_ID;
-    const receiveNodeId = post.receiveNode;
-
-    // find limit to accept send file
-    const policy: Array<ResPoliceByNodeId> =
-      await this.policyManagerService.getPolicyByNodeId(post.receiveNode);
-
-    const policyName = policy[0].policyName;
-    // const nodeName = policy[0].nodeName;
-    const cpuLimit = policy[0].cpuOverPercent;
-    // const cpuLessThanPercent = policy[0].cpuLessThanPercent;
-    // const numberResendNode = policy[0].numberResendNode;
-
-    let fileId: string;
-    const path =
-      `/${process.env.AZURE_STORAGE_CONTAINER}` +
-      `/${process.env.VM_NAME}/${file.originalname}`;
-
     const findFileId: string = await this.fileService.findByPath(path);
     if (!findFileId) {
       const createdFile: IInsertResult = await this.fileService.create(
         `${process.env.VM_NAME}`,
         file,
       );
-      fileId = createdFile.raw[0].id;
+      return createdFile.raw[0].id;
     } else {
-      fileId = findFileId;
+      return findFileId;
     }
+  }
 
+  async createEvent(
+    sendNodeId: string,
+    receiveNodeId: string,
+    policyName: string,
+    fileId: string,
+  ) {
     const optionEvent = <IGetBySendNodeId>{
       sendNodeId,
       receiveNodeId,
@@ -492,12 +267,47 @@ export class EventService {
       status: STATUS.PENDING,
       fileId: fileId,
     });
+    return createdEvent.raw[0].id;
+  }
 
-    const totalEvents = (
-      await this.getNumberOfFilesUpload(sendNodeId, receiveNodeId)
-    ).total;
-    const insertedEventId: string = createdEvent.raw[0].id;
+  async sendData(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() post: { receiveNode: string },
+  ) {
+    // define some variables
+    const sendNodeId = process.env.NODE_ID;
+    const receiveNodeId = post.receiveNode;
 
+    // path backup azure storage
+    const path =
+      `/${process.env.AZURE_STORAGE_CONTAINER}` +
+      `/${process.env.VM_NAME}/${file.originalname}`;
+
+    // set pivot to check condition to send File
+    let isSuccess = false;
+
+    // get policy of receiveNode to find CPU limit
+    const policy: Array<ResPoliceByNodeId> =
+      await this.policyManagerService.getPolicyByNodeId(post.receiveNode);
+
+    // get some properties about node policy
+    const policyName = policy[0].policyName;
+    const cpuLimit = policy[0].cpuOverPercent;
+    const cpuLessThanPercent = policy[0].cpuLessThanPercent;
+    const numberResendNode = policy[0].numberResendNode;
+
+    // create file Id
+    const fileId = await this.createFilePath(file, path);
+
+    // create event
+    const insertedEventId: string = await this.createEvent(
+      sendNodeId,
+      receiveNodeId,
+      policyName,
+      fileId,
+    );
+
+    // emit status PENDING for event send file (FE)
     this.eventGateway.server.emit(SocketEvents.CENTRAL_INIT, {
       id: insertedEventId,
       receiveNodeId,
@@ -506,40 +316,29 @@ export class EventService {
     });
 
     try {
-      // doi thanh cpu cua thang nhan
-      // const infoCurrentNode = await this.nodeService.getCPUCurrentNode();
-      // const cpu = infoCurrentNode.cpuUsage;
-      const cpu = 0.1;
+      // get cpu of receive node
+      const infoCPUNode = await this.nodeService.getCPUByNodeId(
+        post.receiveNode,
+      );
+      const cpu = infoCPUNode.cpuUsage;
 
       if (cpu < cpuLimit) {
         // accept to send file
-        const socketId = GlobalSocketService.socketList[post.receiveNode];
-        this.eventGateway.server.sockets.sockets
-          .get(socketId)
-          .emit('sendData', { data: file });
-
-        // upload to backup
-        await this.upload(`${process.env.VM_NAME}/`, file);
+        this.eventGateway.transferFile(file, post.receiveNode);
 
         // update event and file table
-        await this.fileService.update(findFileId, path);
+        await this.fileService.update(fileId, path);
+
+        // update status send file event
         await this.update(insertedEventId, STATUS.SUCCESS);
-        isSuccess = true;
-        await this.historicalEventService.updateOne(
-          sendNodeId,
+
+        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+          id: insertedEventId,
           receiveNodeId,
-          insertedEventId,
-          totalEvents + 1,
-          SocketStatus.SUCCESS,
-        );
-        setTimeout(() => {
-          this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-            id: insertedEventId,
-            receiveNodeId,
-            sendNodeId,
-            status: SocketStatus.SUCCESS,
-          });
-        }, 2000);
+          sendNodeId,
+          status: SocketStatus.SUCCESS,
+        });
+        isSuccess = true;
       } else {
         // throw error
         throw Error(insertedEventId);
@@ -550,42 +349,39 @@ export class EventService {
       await this.upload(`${process.env.VM_NAME}/`, file);
 
       // update event and file table
-      await this.fileService.update(findFileId, path);
+      await this.fileService.update(fileId, path);
       await this.update(insertedEventId, STATUS.FAIL);
-
-      await this.historicalEventService.updateOne(
-        sendNodeId,
+      this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+        id: insertedEventId,
         receiveNodeId,
-        insertedEventId,
-        totalEvents + 1,
-        SocketStatus.FAIL,
-      );
-      setTimeout(() => {
-        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-          id: insertedEventId,
-          receiveNodeId,
-          sendNodeId,
-          status: SocketStatus.FAIL,
-        });
-      }, 2000);
+        sendNodeId,
+        status: SocketStatus.FAIL,
+      });
     } finally {
-      setTimeout(() => {
-        this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
-          id: insertedEventId,
-          receiveNodeId,
-          sendNodeId,
-          status: SocketStatus.DONE,
-        });
-      }, 4000);
+      this.eventGateway.server.emit(SocketEvents.CENTRAL_UPDATE, {
+        id: insertedEventId,
+        receiveNodeId,
+        sendNodeId,
+        status: SocketStatus.DONE,
+      });
     }
-    return {
-      status: isSuccess,
-      eventId: insertedEventId,
-    };
-    // const socketId = GlobalSocketService.socketList[post.sendNode];
-    // this.eventGateway.server.sockets.sockets.get(socketId).emit('sendData', {
-    //   data: fileUpload,
-    // });
+
+    if (!isSuccess) {
+      // get available Node
+      const availableNode = await this.nodeService.getAvailableNode(
+        process.env.NODE_ID,
+        cpuLessThanPercent,
+      );
+
+      let count = 0;
+
+      for (const node of availableNode.availableNode) {
+        await this.sendData(file, { receiveNode: node.nodeId });
+        // this.eventGateway.transferFile(file, node.nodeId);
+        count += 1;
+        if (count >= numberResendNode) break;
+      }
+    }
   }
 
   async getNumberOfFilesByNodeId(NodeId: string, Period: string) {
