@@ -31,6 +31,21 @@ export interface IEventResult {
   event_updatedAt: string;
   event_policyName: string;
 }
+
 export interface IInsertResult {
   raw: [{ id: string }];
+}
+
+export interface ISendDataEvent {
+  sendNodeId: string;
+  receiveNodeId: string;
+  data: {
+    fieldname: string;
+    originalname: string;
+    encoding: string;
+    mimetype: string;
+    buffer: Buffer;
+    size: bigint;
+  };
+  timestamp: bigint;
 }

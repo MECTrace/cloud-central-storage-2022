@@ -5,7 +5,12 @@ import { firstValueFrom } from 'rxjs';
 import { Repository, Timestamp } from 'typeorm';
 import { Node } from '../entity/node.entity';
 import { shuffleArray } from 'src/util/shuffleArray';
-import { IResAccessToken, IResCPU, IResStatusVM, IResAzureMetricAverage } from '../interfaces';
+import {
+  IResAccessToken,
+  IResCPU,
+  IResStatusVM,
+  IResAzureMetricAverage,
+} from '../interfaces';
 import { UpdateNodeDto } from '../dto/update-node-dto';
 
 @Injectable()
@@ -350,49 +355,34 @@ export class NodeService {
   }
 
   // get available node
-  async getAvailableNode(currentNode: string, cpuLimit: number) {
+  async getAvailableNode(
+    currentNode: string,
+    cpuLimit: number,
+    numberResendNode: number,
+  ) {
     // get data node list
     const nodeList = await this.findAll();
 
-    // filter node that we need to get cpu
-    const vmOfNodes: Array<{
-      name: string;
-      nodeId: string;
-      vmName: string;
-      nodeURL: string;
-    }> = [];
+    // get available Node
+    const availableNode = shuffleArray(
+      nodeList.filter(
+        (element) => element.status === 'On' && element.id != currentNode,
+      ),
+    );
 
-    nodeList
-      .filter((element) => element.status === 'On' && element.id != currentNode)
-      .forEach((element) =>
-        vmOfNodes.push({
-          name: element.name,
-          nodeId: element.id,
-          vmName: element.vmName,
-          nodeURL: element.nodeURL,
-        }),
-      );
-
-    // call api get cpu and add to available node list
-    const vmOfAvailableNodes = [];
-
-    for (const vm of vmOfNodes) {
-      const cpu = await this.getCPU(vm.vmName);
-
-      if (cpu.average < cpuLimit) {
-        vmOfAvailableNodes.push({
+    const data = await Promise.all(
+      availableNode.map(async (vm) => {
+        const cpu = await this.getCPU(vm.vmName);
+        return {
           vmName: vm.vmName,
-          name: vm.name,
-          nodeId: vm.nodeId,
-          nodeURL: vm.nodeURL,
+          nodeId: vm.id,
           cpuUsage: cpu.average,
           updateAt: cpu.timeStamp,
-        });
-      }
-    }
-    return {
-      availableNode: shuffleArray(vmOfAvailableNodes),
-    };
+        };
+      }),
+    );
+
+    return data.filter((e) => e.cpuUsage < cpuLimit).slice(0, numberResendNode);
   }
 
   async updateStatus(

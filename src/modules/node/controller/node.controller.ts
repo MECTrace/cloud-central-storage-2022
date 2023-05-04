@@ -88,7 +88,7 @@ export class NodeController {
     return this.nodeService.getDiskOperatorByNodeId(nodeId);
   }
 
-  @Get('getAvailableNode/:currentNode/:cpuLimit')
+  @Get('getAvailableNode/:currentNode/:cpuLimit/:numberResendNode')
   @ApiOperation({
     description: `Get Available Node`,
   })
@@ -99,8 +99,13 @@ export class NodeController {
   getAvailableNode(
     @Param('currentNode') currentNode: string,
     @Param('cpuLimit') cpuLimit: number,
+    @Param('numberResendNode') numberResendNode: number,
   ) {
-    return this.nodeService.getAvailableNode(currentNode, cpuLimit);
+    return this.nodeService.getAvailableNode(
+      currentNode,
+      cpuLimit,
+      numberResendNode,
+    );
   }
 
   @Get('status')

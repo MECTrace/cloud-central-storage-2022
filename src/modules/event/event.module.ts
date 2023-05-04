@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventController } from './controller/event.controller';
 import { Event } from './entity/event.entity';
-import { EventGateway } from './event.gateway';
+// import { EventGateway } from './event.gateway';
 import { EventService } from './service/event.service';
 import { FileService } from '../file/service/file.service';
 import { File } from '../file/entity/file.entity';
@@ -15,7 +15,8 @@ import { PolicyManager } from '../policy-manager/entity/policy-manager.entity';
 import { PolicyManagerService } from '../policy-manager/service/policy-manager.service';
 import { HistoricalEvent } from '../historical-event/entity/historical-event.entity';
 import { HistoricalEventService } from '../historical-event/service/historical-event.service';
-
+// import { SocketServer } from 'src/app.gateway';
+import { GatewayServer } from '../gateway/gateway-server';
 @Module({
   imports: [
     TypeOrmModule.forFeature([HistoricalEvent]),
@@ -32,9 +33,10 @@ import { HistoricalEventService } from '../historical-event/service/historical-e
     EventService,
     FileService,
     NodeService,
-    EventGateway,
+    // EventGateway,
     PolicyManagerService,
     PolicyService,
+    GatewayServer,
   ],
   exports: [EventService],
 })

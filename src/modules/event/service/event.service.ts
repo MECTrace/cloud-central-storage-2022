@@ -10,16 +10,18 @@ import { Event } from '../entity/event.entity';
 import { IEventResult, IInsertResult } from '../interfaces';
 import { NodeService } from 'src/modules/node/service/node.service';
 import { FileService } from 'src/modules/file/service/file.service';
-import { EventGateway } from '../event.gateway';
+// import { EventGateway } from '../event.gateway';
 import { SocketEvents, SocketStatus, STATUS, ROOT_CA } from 'src/constants';
 import * as FormData from 'form-data';
 import { lastValueFrom } from 'rxjs';
 import * as fs from 'fs';
 import * as https from 'https';
-import { HistoricalEventService } from 'src/modules/historical-event/service/historical-event.service';
-import { GlobalSocketService } from 'src/app.gateway.global';
+// import { HistoricalEventService } from 'src/modules/historical-event/service/historical-event.service';
+// import { GlobalSocketService } from 'src/app.gateway.global';
 import { PolicyManagerService } from 'src/modules/policy-manager/service/policy-manager.service';
 import { ResPoliceByNodeId } from 'src/modules/policy-manager/interfaces';
+// import { SocketServer } from 'src/app.gateway';
+import { GatewayServer } from 'src/modules/gateway/gateway-server';
 export interface IGetBySendNodeId {
   fileId: string;
   sendNode: string;
@@ -47,9 +49,7 @@ export class EventService {
     private eventRepository: Repository<Event>,
     private nodeService: NodeService,
     private fileService: FileService,
-    private eventGateway: EventGateway,
-    private httpService: HttpService,
-    private historicalEventService: HistoricalEventService,
+    private eventGateway: GatewayServer,
     private policyManagerService: PolicyManagerService,
   ) {}
 
@@ -274,7 +274,7 @@ export class EventService {
     @UploadedFile() file: Express.Multer.File,
     @Body() post: { receiveNode: string },
   ) {
-    // define some variables
+    // define some variables for convenience
     const sendNodeId = process.env.NODE_ID;
     const receiveNodeId = post.receiveNode;
 
@@ -324,7 +324,7 @@ export class EventService {
 
       if (cpu < cpuLimit) {
         // accept to send file
-        this.eventGateway.transferFile(file, post.receiveNode);
+        this.eventGateway.sendData(file, post.receiveNode);
 
         // update event and file table
         await this.fileService.update(fileId, path);
@@ -371,16 +371,21 @@ export class EventService {
       const availableNode = await this.nodeService.getAvailableNode(
         process.env.NODE_ID,
         cpuLessThanPercent,
+        numberResendNode,
       );
 
-      let count = 0;
-
-      for (const node of availableNode.availableNode) {
-        await this.sendData(file, { receiveNode: node.nodeId });
-        // this.eventGateway.transferFile(file, node.nodeId);
-        count += 1;
-        if (count >= numberResendNode) break;
+      const promises = [];
+      for (const node of availableNode) {
+        promises.push(
+          this.sendData(file, { receiveNode: node.nodeId }).catch((err) =>
+            console.log(err),
+          ),
+        );
       }
+
+      Promise.all(promises)
+        .then((response) => console.log(response))
+        .catch((err) => console.log(err));
     }
   }
 
@@ -510,5 +515,32 @@ export class EventService {
       .innerJoin(File, 'file', 'event.fileId = file.id ')
       .addGroupBy('file.fileType')
       .getRawMany<{ fileType: string; total: number }>();
+  }
+
+  async getLatestEventList() {
+    return this.eventRepository.query(`
+      WITH latest_event AS (
+        SELECT
+          e."sendNodeId",
+          e."receiveNodeId",
+          e.status,
+          ROW_NUMBER() OVER (
+            PARTITION BY e."sendNodeId", e."receiveNodeId"
+            ORDER BY e."updatedAt" DESC
+          ) AS row_number,
+          COUNT(e.id) OVER (
+            PARTITION BY e."sendNodeId", e."receiveNodeId"
+          ) AS total
+        FROM public.event AS e
+      )
+      
+      SELECT
+        le."sendNodeId",
+        le."receiveNodeId",
+        le.status,
+        le.total AS label
+      FROM latest_event as le
+      WHERE le.row_number = 1
+    `);
   }
 }

@@ -19,35 +19,21 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { HttpService } from '@nestjs/axios';
 import { SocketEvents, SocketStatus, STATUS, SWAGGER_API } from 'src/constants';
-import { NodeService } from 'src/modules/node/service/node.service';
-import { FileService } from '../../file/service/file.service';
-import { FileUploadDto } from '../dto/fileUpload.dto';
-import { FileUploadFromNodeDto } from '../dto/fileUploadFromNode.dto';
-import { EventGateway } from '../event.gateway';
-import { IEventResult, IGetBySendNodeId, IInsertResult } from '../interfaces';
-import { ResPoliceByNodeId } from 'src/modules/policy-manager/interfaces';
 import { EventService } from '../service/event.service';
 import { PaginationParams } from '../../../util/paginationParams';
 import { summaryDto } from '../dto/summary.dto';
-import { PolicyManagerService } from 'src/modules/policy-manager/service/policy-manager.service';
-import * as FormData from 'form-data';
-import { lastValueFrom } from 'rxjs';
-import { diskStorage } from 'multer';
-import { existsSync, mkdirSync } from 'fs';
-import { MessageEvent } from '../dto/messageEvent.dto';
+import { sendDataEvent } from '../dto/sendDataEvent.dto';
+
 @ApiTags('Upload file API')
 @Controller('event')
 export class EventController {
-  constructor(
-    private eventService: EventService,
-    private fileService: FileService,
-    private nodeService: NodeService,
-    private eventGateway: EventGateway,
-    private policyManagerService: PolicyManagerService,
-    private httpService: HttpService,
-  ) {}
+  constructor(private eventService: EventService) {}
+
+  @Get('latestEventList')
+  async getLatestEventList() {
+    return this.eventService.getLatestEventList();
+  }
 
   @Get('summary')
   @ApiOkResponse({
@@ -89,9 +75,7 @@ export class EventController {
   @Post('sendData')
   @UseInterceptors(FileInterceptor('fileUpload'))
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    type: MessageEvent,
-  })
+  @ApiBody({ type: sendDataEvent })
   async sendData(
     @UploadedFile() fileUpload: Express.Multer.File,
     @Body() post: { receiveNode: string },
